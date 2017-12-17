@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Android 仿instagram和微博的头像点击加载动画</title>
+  <meta name="description" content="github: https://github.com/qintong91/InsLoadingAnimation">
+
+  <link rel="stylesheet" href="/assets/main.css">
+  <link rel="canonical" href="http://localhost:4000/android/2017/05/25/InsLoadingAnimation.html">
+  <link rel="alternate" type="application/rss+xml" title="QinTong Blog" href="/feed.xml">
+  
+  
+</head>
+
+
+  <body>
+
+    <header class="site-header" role="banner">
+
+  <div class="wrapper">
+    
+    
+    <a class="site-title" href="/">QinTong Blog</a>
+  
+    
+      <nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger">
+          
+            
+            
+          
+            
+            
+            <a class="page-link" href="/about/">About</a>
+            
+          
+            
+            
+          
+            
+            
+          
+            
+            
+          
+        </div>
+      </nav>
+    
+  </div>
+</header>
+
+
+    <main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">Android 仿instagram和微博的头像点击加载动画</h1>
+    <p class="post-meta">
+      <time datetime="2017-05-25T17:45:39+08:00" itemprop="datePublished">
+        
+        May 25, 2017
+      </time>
+      </p>
+  </header>
+
+  <div class="post-content" itemprop="articleBody">
+    <p>github: https://github.com/qintong91/InsLoadingAnimation</p>
+
+<p>前段时间发现instagram点击用户头像的加载小视频动画，效果如下：</p>
+
+<p><img src="http://upload-images.jianshu.io/upload_images/3535590-589db4949ff7c71b.gif?imageMogr2/auto-orient/strip" alt="ins.gif" />
+对，就是转圈圈的这个，这么酷炫，我也要做一个！
+在整理代码和总结时候，神奇的事情发生了，在我日常刷微博的时候点开微博客户端时候突然发现：
+<img src="http://upload-images.jianshu.io/upload_images/3535590-3b05b50223d9fcdf.gif?imageMogr2/auto-orient/strip" alt="weibo.gif" /></p>
+
+<p>缘分啊，发现了微博Android客户端也上线了类似动画！等等，不是类似，这是特么是除了颜色和ins的一毛一样啊！
+既然这个动画效果这么火，那还不赶快把我实现分享出来
+如下就是我实现的效果：
+<img src="http://upload-images.jianshu.io/upload_images/3535590-8d7d63098af3ccdf.gif?imageMogr2/auto-orient/strip" alt="demo" /></p>
+
+<p>工程链接：https://github.com/qintong91/InsLoadingAnimation
+(你如果觉得不错就不要控制自己，点进去star一下~)
+下文，分别为整理介绍，使用，具体实现与总结。</p>
+<h2 id="1介绍">1.介绍</h2>
+<p>InsLoadingView继承自ImageView,其对应的image显示为圆形。InsLoadingView有三种状态：LOADING/UNCLICKED/CLICKED，Loading时候轮廓有不断循环的动画，如上图(下文分析源码时候会详细阐明其过程)。UNCLICKED时外侧轮廓为静态的彩色圈，CLICKED外层为静态的灰色圈。此外，在其被点击时还有控件收缩的动画效果。注意：由于状态是与应用中的情况相关的，所以状态变化需要用户手动去设置。
+整体效果如下(感谢家里的喵主子~)</p>
+
+<p><img src="http://upload-images.jianshu.io/upload_images/3535590-97b1d8e2d2943bd1.gif?imageMogr2/auto-orient/strip" alt="" /></p>
+
+<h2 id="2使用">2.使用</h2>
+<p>如果你想在自己的项目中使用的话，可以按如下几步进行：</p>
+<h3 id="step-1">Step 1</h3>
+
+<p>在build.gradle增加依赖：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dependencies {
+  compile 'com.qintong:insLoadingAnimation:1.0.1'
+}
+</code></pre></div></div>
+
+<h3 id="step-2">Step 2</h3>
+
+<p>InsLoadingView继承自ImageView, 所以最基本的，可以按照ImageView的用法使用InsLoadingView：</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;com.qintong.library.InsLoadingView</span>
+    <span class="na">android:layout_centerInParent=</span><span class="s">"true"</span>
+    <span class="na">android:id=</span><span class="s">"@+id/loading_view"</span>
+    <span class="na">android:layout_width=</span><span class="s">"wrap_content"</span>
+    <span class="na">android:layout_height=</span><span class="s">"wrap_content"</span>
+    <span class="na">android:src=</span><span class="s">"@mipmap/pink"</span><span class="nt">/&gt;</span>
+</code></pre></div></div>
+
+<h3 id="step-3">Step 3</h3>
+
+<h4 id="设置状态">设置状态：</h4>
+<p>您可以手动设置其状态，来对应在您应用中的当前状态。InsLoadingView的状态有：
+LOADING: 表示InsLoadingView被点击之后正在加载内容(未加载完毕之前)，该状态下动画正在执行。
+UNCLICKED: 该InsLoadingView被点击之前的状态，此状态下动画停止。
+CLICKED: 表示InsLoadingView被点击和加载过，此状态下动画停止切圆圈的颜色为灰色。
+默认的状态是LOADING。</p>
+
+<p>可以通过一下代码设置状态：
+xml:</p>
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  app:status="loading" //or "clicked",or "clicked"
+</code></pre></div></div>
+
+<p>java:</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="n">mInsLoadingView</span><span class="o">.</span><span class="na">setStatus</span><span class="o">(</span><span class="n">InsLoadingView</span><span class="o">.</span><span class="na">Status</span><span class="o">.</span><span class="na">LOADING</span><span class="o">);</span> <span class="c1">//Or InsLoadingView.Status.CLICKED, InsLoadingView.Status.UNCLICKED</span>
+</code></pre></div></div>
+
+<h4 id="设置颜色">设置颜色</h4>
+<p>设置start color和start color，InsLoadingView的圆圈会显示两个颜色间的过渡。
+可以按如下代码设置：</p>
+
+<p>xml:</p>
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  app:start_color="#FFF700C2" //or your color
+  app:end_color="#FFFFD900" //or your color
+</code></pre></div></div>
+
+<p>java:</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="n">mInsLoadingView</span><span class="o">.</span><span class="na">setStartColor</span><span class="o">(</span><span class="n">Color</span><span class="o">.</span><span class="na">YELLOW</span><span class="o">);</span> <span class="c1">//or your color</span>
+  <span class="n">mInsLoadingView</span><span class="o">.</span><span class="na">setEndColor</span><span class="o">(</span><span class="n">Color</span><span class="o">.</span><span class="na">BLUE</span><span class="o">);</span> <span class="c1">//or your color</span>
+</code></pre></div></div>
+<p>默认的start color和start color为#FFF700C2和#FFFFD900。</p>
+
+<h4 id="设置速度">设置速度</h4>
+<p>通过设置环绕动画的时间和整体旋转的时间来改变速度：</p>
+
+<p>xml:</p>
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  app:circle_duration="2000"
+  app:rotate_duration="10000"
+</code></pre></div></div>
+
+<p>java:</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="n">mInsLoadingView</span><span class="o">.</span><span class="na">setCircleDuration</span><span class="o">(</span><span class="mi">2000</span><span class="o">);</span>
+  <span class="n">mInsLoadingView</span><span class="o">.</span><span class="na">setRotateDuration</span><span class="o">(</span><span class="mi">10000</span><span class="o">);</span>
+</code></pre></div></div>
+<p>默认的时间为2000ms和10000ms。</p>
+
+<h2 id="2实现">2.实现</h2>
+
+<p>完整的代码请见https://github.com/qintong91/InsLoadingAnimation
+下面就对代码进行分析。<br />
+InsLoadingView继承自ImageView，动画效果主要通过重写onDraw()函数重新绘制。所以可以先看onDraw()方法：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onDraw</span><span class="o">(</span><span class="n">Canvas</span> <span class="n">canvas</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">canvas</span><span class="o">.</span><span class="na">scale</span><span class="o">(</span><span class="n">mScale</span><span class="o">,</span> <span class="n">mScale</span><span class="o">,</span> <span class="n">centerX</span><span class="o">(),</span> <span class="n">centerY</span><span class="o">());</span>
+        <span class="n">drawBitmap</span><span class="o">(</span><span class="n">canvas</span><span class="o">);</span>
+        <span class="n">Paint</span> <span class="n">paint</span> <span class="o">=</span> <span class="n">getPaint</span><span class="o">(</span><span class="n">getColor</span><span class="o">(</span><span class="mi">0</span><span class="o">),</span> <span class="n">getColor</span><span class="o">(</span><span class="mi">360</span><span class="o">),</span> <span class="mi">360</span><span class="o">);</span>
+        <span class="k">switch</span> <span class="o">(</span><span class="n">mStatus</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">case</span> <span class="nl">LOADING:</span>
+                <span class="n">drawTrack</span><span class="o">(</span><span class="n">canvas</span><span class="o">,</span> <span class="n">paint</span><span class="o">);</span>
+                <span class="k">break</span><span class="o">;</span>
+            <span class="k">case</span> <span class="nl">UNCLICKED:</span>
+                <span class="n">drawCircle</span><span class="o">(</span><span class="n">canvas</span><span class="o">,</span> <span class="n">paint</span><span class="o">);</span>
+                <span class="k">break</span><span class="o">;</span>
+            <span class="k">case</span> <span class="nl">CLICKED:</span>
+                <span class="n">drawClickedircle</span><span class="o">(</span><span class="n">canvas</span><span class="o">);</span>
+                <span class="k">break</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+<p>drawBitmap()为实现显示圆形图片重新完成了绘制图片的过程。之后根据当前status绘制图片外的圈：status为LOADING时候绘制时是动画，其他两种情况绘制是静态的圆圈。</p>
+
+<h3 id="1-动画绘制">(1) 动画绘制:</h3>
+<p>LOADING时候的动画是项目中最核心的部分。从动画效果中可以看出，圆弧的两端都在运动：运动较慢的一端其实反应了外圈的整体旋转(连同颜色)，较快一端的旋转还有两个过程：圆弧向外“伸展”一圈和向回“收缩”一圈的过程。
+degress和cricleWidth是实时变化的，他们的值由ValueAnimator设置，这两个值分别表示整个动画整体旋转的角度（也就是动画中转速较慢一端）和转速较快的圆弧的动画。两个变量的单位都是度degress范围为0-360，cricleWidth范围为-360到360。cricleWidth圆弧向回“收缩”和向外“伸展”的过程,分别对应代码中的a和b过程,对应的circleWidth范围为-360—0度和0—360度。
+在a过程中，cricleWidth + 360换算得到成正的adjustCricleWidth，adjustCricleWidth到360度绘制一个扇形圆弧，adjustCricleWidth到0度，依次向后每隔12度画小的扇形圆弧，圆弧的宽度递减。
+b过程中：从0到cricleWidth：最前端绘制4个小扇形圆弧，其后到0度绘制一个长圆弧。从360度到cricleWidth，每间隔12度依次绘制小圆弧，其宽度递减。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="kd">private</span> <span class="kt">void</span> <span class="nf">drawTrack</span><span class="o">(</span><span class="n">Canvas</span> <span class="n">canvas</span><span class="o">,</span> <span class="n">Paint</span> <span class="n">paint</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">canvas</span><span class="o">.</span><span class="na">rotate</span><span class="o">(</span><span class="n">degress</span><span class="o">,</span> <span class="n">centerX</span><span class="o">(),</span> <span class="n">centerY</span><span class="o">());</span>
+        <span class="n">canvas</span><span class="o">.</span><span class="na">rotate</span><span class="o">(</span><span class="n">ARC_WIDTH</span><span class="o">,</span> <span class="n">centerX</span><span class="o">(),</span> <span class="n">centerY</span><span class="o">());</span>
+        <span class="n">RectF</span> <span class="n">rectF</span> <span class="o">=</span> <span class="k">new</span> <span class="n">RectF</span><span class="o">(</span><span class="n">getWidth</span><span class="o">()</span> <span class="o">*</span> <span class="o">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">circleDia</span><span class="o">),</span> <span class="n">getWidth</span><span class="o">()</span> <span class="o">*</span> <span class="o">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">circleDia</span><span class="o">),</span>
+                <span class="n">getWidth</span><span class="o">()</span> <span class="o">*</span> <span class="n">circleDia</span><span class="o">,</span> <span class="n">getHeight</span><span class="o">()</span> <span class="o">*</span> <span class="n">circleDia</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">DEBUG</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"cricleWidth:"</span> <span class="o">+</span> <span class="n">cricleWidth</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">cricleWidth</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">//a</span>
+            <span class="kt">float</span> <span class="n">startArg</span> <span class="o">=</span> <span class="n">cricleWidth</span> <span class="o">+</span> <span class="mi">360</span><span class="o">;</span>
+            <span class="n">canvas</span><span class="o">.</span><span class="na">drawArc</span><span class="o">(</span><span class="n">rectF</span><span class="o">,</span> <span class="n">startArg</span><span class="o">,</span> <span class="mi">360</span> <span class="o">-</span> <span class="n">startArg</span><span class="o">,</span> <span class="kc">false</span><span class="o">,</span> <span class="n">paint</span><span class="o">);</span>
+            <span class="kt">float</span> <span class="n">adjustCricleWidth</span> <span class="o">=</span> <span class="n">cricleWidth</span> <span class="o">+</span> <span class="mi">360</span><span class="o">;</span>
+            <span class="kt">float</span> <span class="n">width</span> <span class="o">=</span> <span class="mi">8</span><span class="o">;</span>
+            <span class="k">while</span> <span class="o">(</span><span class="n">adjustCricleWidth</span> <span class="o">&gt;</span> <span class="n">ARC_WIDTH</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">width</span> <span class="o">=</span> <span class="n">width</span> <span class="o">-</span> <span class="n">arcChangeAngle</span><span class="o">;</span>
+                <span class="n">adjustCricleWidth</span> <span class="o">=</span> <span class="n">adjustCricleWidth</span> <span class="o">-</span> <span class="n">ARC_WIDTH</span><span class="o">;</span>
+                <span class="n">canvas</span><span class="o">.</span><span class="na">drawArc</span><span class="o">(</span><span class="n">rectF</span><span class="o">,</span> <span class="n">adjustCricleWidth</span><span class="o">,</span> <span class="n">width</span><span class="o">,</span> <span class="kc">false</span><span class="o">,</span> <span class="n">paint</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">//b</span>
+            <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">4</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">ARC_WIDTH</span> <span class="o">*</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">cricleWidth</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="k">break</span><span class="o">;</span>
+                <span class="o">}</span>
+                <span class="n">canvas</span><span class="o">.</span><span class="na">drawArc</span><span class="o">(</span><span class="n">rectF</span><span class="o">,</span> <span class="n">cricleWidth</span> <span class="o">-</span> <span class="n">ARC_WIDTH</span> <span class="o">*</span> <span class="n">i</span><span class="o">,</span> <span class="mi">8</span> <span class="o">+</span> <span class="n">i</span><span class="o">,</span> <span class="kc">false</span><span class="o">,</span> <span class="n">paint</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">cricleWidth</span> <span class="o">&gt;</span> <span class="n">ARC_WIDTH</span> <span class="o">*</span> <span class="mi">4</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">canvas</span><span class="o">.</span><span class="na">drawArc</span><span class="o">(</span><span class="n">rectF</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">cricleWidth</span> <span class="o">-</span> <span class="n">ARC_WIDTH</span> <span class="o">*</span> <span class="mi">4</span><span class="o">,</span> <span class="kc">false</span><span class="o">,</span> <span class="n">paint</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="kt">float</span> <span class="n">adjustCricleWidth</span> <span class="o">=</span> <span class="mi">360</span><span class="o">;</span>
+            <span class="kt">float</span> <span class="n">width</span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="o">(</span><span class="mi">360</span> <span class="o">-</span> <span class="n">cricleWidth</span><span class="o">)</span> <span class="o">/</span> <span class="mi">360</span><span class="o">;</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">DEBUG</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"width:"</span> <span class="o">+</span> <span class="n">width</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="k">while</span> <span class="o">(</span><span class="n">width</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">adjustCricleWidth</span> <span class="o">&gt;</span> <span class="n">ARC_WIDTH</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">width</span> <span class="o">=</span> <span class="n">width</span> <span class="o">-</span> <span class="n">arcChangeAngle</span><span class="o">;</span>
+                <span class="n">adjustCricleWidth</span> <span class="o">=</span> <span class="n">adjustCricleWidth</span> <span class="o">-</span> <span class="n">ARC_WIDTH</span><span class="o">;</span>
+                <span class="n">canvas</span><span class="o">.</span><span class="na">drawArc</span><span class="o">(</span><span class="n">rectF</span><span class="o">,</span> <span class="n">adjustCricleWidth</span><span class="o">,</span> <span class="n">width</span><span class="o">,</span> <span class="kc">false</span><span class="o">,</span> <span class="n">paint</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="2-点击view收缩效果">(2) 点击View收缩效果：</h3>
+<p>在onDraw()方法中有：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        <span class="n">canvas</span><span class="o">.</span><span class="na">scale</span><span class="o">(</span><span class="n">mScale</span><span class="o">,</span> <span class="n">mScale</span><span class="o">,</span> <span class="n">centerX</span><span class="o">(),</span> <span class="n">centerY</span><span class="o">());</span>
+</code></pre></div></div>
+<p>控制了View在点击后的整体收缩效果，mScale参数由ValueAnimator和触摸事件控制。在onTouchEvent()中我们要分析event，ACTION_DOWN时候按下mScale开始变小，从当前值向最向0.9变化(中间值由ValueAnimator生成)，在ACTION_UP和ACTION_CANCEL时候手指抬起，mScale由当前值向1变化。
+这里值得注意的是，在重写onTouchEvent()时候，有两点要注意：1.要保证super.onTouchEvent(event)被调用，否则该View的OnClickListener和OnLongClickListener将不会响应(具体可见事件传递机制，OnClickListener/OnLongClickListener层级最低)。2.在处理ACTION_DOWN时候要保证返回值为True，否则同次动作的ACTION_UP等事件将不会再响应，这也是事件传递机制的内容。为保证这两点，此处代码如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">onTouchEvent</span><span class="o">(</span><span class="n">MotionEvent</span> <span class="n">event</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kt">boolean</span> <span class="n">result</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">DEBUG</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"onTouchEvent: "</span> <span class="o">+</span> <span class="n">event</span><span class="o">.</span><span class="na">getAction</span><span class="o">());</span>
+        <span class="o">}</span>
+        <span class="k">switch</span> <span class="o">(</span><span class="n">event</span><span class="o">.</span><span class="na">getAction</span><span class="o">())</span> <span class="o">{</span>
+            <span class="k">case</span> <span class="n">MotionEvent</span><span class="o">.</span><span class="na">ACTION_DOWN</span><span class="o">:</span> <span class="o">{</span>
+                <span class="n">startDownAnim</span><span class="o">();</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+                <span class="k">break</span><span class="o">;</span>
+            <span class="o">}</span>
+            <span class="k">case</span> <span class="n">MotionEvent</span><span class="o">.</span><span class="na">ACTION_UP</span><span class="o">:</span> <span class="o">{</span>
+                <span class="n">startUpAnim</span><span class="o">();</span>
+                <span class="k">break</span><span class="o">;</span>
+            <span class="o">}</span>
+            <span class="k">case</span> <span class="n">MotionEvent</span><span class="o">.</span><span class="na">ACTION_CANCEL</span><span class="o">:</span> <span class="o">{</span>
+                <span class="n">startUpAnim</span><span class="o">();</span>
+                <span class="k">break</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="kd">super</span><span class="o">.</span><span class="na">onTouchEvent</span><span class="o">(</span><span class="n">event</span><span class="o">)</span> <span class="o">||</span> <span class="n">result</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="kt">void</span> <span class="nf">startDownAnim</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">mTouchAnim</span><span class="o">.</span><span class="na">setFloatValues</span><span class="o">(</span><span class="n">mScale</span><span class="o">,</span> <span class="mf">0.9f</span><span class="o">);</span>
+        <span class="n">mTouchAnim</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
+
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="kt">void</span> <span class="nf">startUpAnim</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">mTouchAnim</span><span class="o">.</span><span class="na">setFloatValues</span><span class="o">(</span><span class="n">mScale</span><span class="o">,</span> <span class="mi">1</span><span class="o">);</span>
+        <span class="n">mTouchAnim</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="3-valueanimator">(3) ValueAnimator：</h3>
+<p>该项目用到了三个ValueAnimator：分别控制前文的degress，cricleWidth以及mScale，绘制圆弧的过程中是减速的过程，所以用了减速插值器，其他两个过程用的都是线性插值器。此外，还需要判断当前是绘制圆弧向外伸展还是向内伸缩，所以用了个boolean值isFirstCircle进行判断，在动画Repeat时候对其值反转。代码如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="kd">private</span> <span class="kt">void</span> <span class="nf">onCreateAnimators</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">mRotateAnim</span> <span class="o">=</span> <span class="n">ValueAnimator</span><span class="o">.</span><span class="na">ofFloat</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="mi">180</span><span class="o">,</span> <span class="mi">360</span><span class="o">);</span>
+        <span class="n">mRotateAnim</span><span class="o">.</span><span class="na">addUpdateListener</span><span class="o">(</span><span class="k">new</span> <span class="n">ValueAnimator</span><span class="o">.</span><span class="na">AnimatorUpdateListener</span><span class="o">()</span> <span class="o">{</span>
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAnimationUpdate</span><span class="o">(</span><span class="n">ValueAnimator</span> <span class="n">animation</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">degress</span> <span class="o">=</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="n">animation</span><span class="o">.</span><span class="na">getAnimatedValue</span><span class="o">();</span>
+                <span class="n">postInvalidate</span><span class="o">();</span>
+            <span class="o">}</span>
+        <span class="o">});</span>
+        <span class="n">mRotateAnim</span><span class="o">.</span><span class="na">setInterpolator</span><span class="o">(</span><span class="k">new</span> <span class="n">LinearInterpolator</span><span class="o">());</span>
+        <span class="n">mRotateAnim</span><span class="o">.</span><span class="na">setDuration</span><span class="o">(</span><span class="n">mRotateDuration</span><span class="o">);</span>
+        <span class="n">mRotateAnim</span><span class="o">.</span><span class="na">setRepeatCount</span><span class="o">(-</span><span class="mi">1</span><span class="o">);</span>
+        <span class="n">mCircleAnim</span> <span class="o">=</span> <span class="n">ValueAnimator</span><span class="o">.</span><span class="na">ofFloat</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="mi">360</span><span class="o">);</span>
+        <span class="n">mCircleAnim</span><span class="o">.</span><span class="na">setInterpolator</span><span class="o">(</span><span class="k">new</span> <span class="n">DecelerateInterpolator</span><span class="o">());</span>
+        <span class="n">mCircleAnim</span><span class="o">.</span><span class="na">setDuration</span><span class="o">(</span><span class="n">mCircleDuration</span><span class="o">);</span>
+        <span class="n">mCircleAnim</span><span class="o">.</span><span class="na">setRepeatCount</span><span class="o">(-</span><span class="mi">1</span><span class="o">);</span>
+        <span class="n">mCircleAnim</span><span class="o">.</span><span class="na">addUpdateListener</span><span class="o">(</span><span class="k">new</span> <span class="n">ValueAnimator</span><span class="o">.</span><span class="na">AnimatorUpdateListener</span><span class="o">()</span> <span class="o">{</span>
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAnimationUpdate</span><span class="o">(</span><span class="n">ValueAnimator</span> <span class="n">animation</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">isFirstCircle</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="n">cricleWidth</span> <span class="o">=</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="n">animation</span><span class="o">.</span><span class="na">getAnimatedValue</span><span class="o">();</span>
+                <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                    <span class="n">cricleWidth</span> <span class="o">=</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="n">animation</span><span class="o">.</span><span class="na">getAnimatedValue</span><span class="o">()</span> <span class="o">-</span> <span class="mi">360</span><span class="o">;</span>
+                <span class="o">}</span>
+                <span class="n">postInvalidate</span><span class="o">();</span>
+            <span class="o">}</span>
+        <span class="o">});</span>
+        <span class="n">mCircleAnim</span><span class="o">.</span><span class="na">addListener</span><span class="o">(</span><span class="k">new</span> <span class="n">Animator</span><span class="o">.</span><span class="na">AnimatorListener</span><span class="o">()</span> <span class="o">{</span>
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAnimationStart</span><span class="o">(</span><span class="n">Animator</span> <span class="n">animation</span><span class="o">)</span> <span class="o">{</span>
+
+            <span class="o">}</span>
+
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAnimationEnd</span><span class="o">(</span><span class="n">Animator</span> <span class="n">animation</span><span class="o">)</span> <span class="o">{</span>
+
+            <span class="o">}</span>
+
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAnimationCancel</span><span class="o">(</span><span class="n">Animator</span> <span class="n">animation</span><span class="o">)</span> <span class="o">{</span>
+
+            <span class="o">}</span>
+
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAnimationRepeat</span><span class="o">(</span><span class="n">Animator</span> <span class="n">animation</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">isFirstCircle</span> <span class="o">=</span> <span class="o">!</span><span class="n">isFirstCircle</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">});</span>
+        <span class="n">mTouchAnim</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ValueAnimator</span><span class="o">();</span>
+        <span class="n">mTouchAnim</span><span class="o">.</span><span class="na">setInterpolator</span><span class="o">(</span><span class="k">new</span> <span class="n">DecelerateInterpolator</span><span class="o">());</span>
+        <span class="n">mTouchAnim</span><span class="o">.</span><span class="na">setDuration</span><span class="o">(</span><span class="mi">200</span><span class="o">);</span>
+        <span class="n">mTouchAnim</span><span class="o">.</span><span class="na">addUpdateListener</span><span class="o">(</span><span class="k">new</span> <span class="n">ValueAnimator</span><span class="o">.</span><span class="na">AnimatorUpdateListener</span><span class="o">()</span> <span class="o">{</span>
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAnimationUpdate</span><span class="o">(</span><span class="n">ValueAnimator</span> <span class="n">animation</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">mScale</span> <span class="o">=</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="n">animation</span><span class="o">.</span><span class="na">getAnimatedValue</span><span class="o">();</span>
+                <span class="n">postInvalidate</span><span class="o">();</span>
+            <span class="o">}</span>
+        <span class="o">});</span>
+        <span class="n">startAnim</span><span class="o">();</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+<h3 id="4-绘制圆形图片">(4) 绘制圆形图片：</h3>
+<p>由于与ImageView不同，这里图片要显示成圆形，所以这里我们通过Drawble拿到Bitmap对象后，将其BitmapShader修剪成正方形，paint的shader设置为其BitmapShader，再用该paint画圆：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="kd">private</span> <span class="kt">void</span> <span class="nf">drawBitmap</span><span class="o">(</span><span class="n">Canvas</span> <span class="n">canvas</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">Paint</span> <span class="n">bitmapPaint</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Paint</span><span class="o">();</span>
+        <span class="n">setBitmapShader</span><span class="o">(</span><span class="n">bitmapPaint</span><span class="o">);</span>
+        <span class="n">RectF</span> <span class="n">rectF</span> <span class="o">=</span> <span class="k">new</span> <span class="n">RectF</span><span class="o">(</span><span class="n">getWidth</span><span class="o">()</span> <span class="o">*</span> <span class="o">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">bitmapDia</span><span class="o">),</span> <span class="n">getWidth</span><span class="o">()</span> <span class="o">*</span> <span class="o">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">bitmapDia</span><span class="o">),</span>
+                <span class="n">getWidth</span><span class="o">()</span> <span class="o">*</span> <span class="n">bitmapDia</span><span class="o">,</span> <span class="n">getHeight</span><span class="o">()</span> <span class="o">*</span> <span class="n">bitmapDia</span><span class="o">);</span>
+        <span class="n">canvas</span><span class="o">.</span><span class="na">drawOval</span><span class="o">(</span><span class="n">rectF</span><span class="o">,</span> <span class="n">bitmapPaint</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="kt">void</span> <span class="nf">setBitmapShader</span><span class="o">(</span><span class="n">Paint</span> <span class="n">paint</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">Drawable</span> <span class="n">drawable</span> <span class="o">=</span> <span class="n">getDrawable</span><span class="o">();</span>
+        <span class="n">Matrix</span> <span class="n">matrix</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Matrix</span><span class="o">();</span>
+        <span class="k">if</span> <span class="o">(</span><span class="kc">null</span> <span class="o">==</span> <span class="n">drawable</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="n">Bitmap</span> <span class="n">bitmap</span> <span class="o">=</span> <span class="n">drawableToBitmap</span><span class="o">(</span><span class="n">drawable</span><span class="o">);</span>
+        <span class="n">BitmapShader</span> <span class="n">tshader</span> <span class="o">=</span> <span class="k">new</span> <span class="n">BitmapShader</span><span class="o">(</span><span class="n">bitmap</span><span class="o">,</span> <span class="n">Shader</span><span class="o">.</span><span class="na">TileMode</span><span class="o">.</span><span class="na">CLAMP</span><span class="o">,</span> <span class="n">Shader</span><span class="o">.</span><span class="na">TileMode</span><span class="o">.</span><span class="na">CLAMP</span><span class="o">);</span>
+        <span class="kt">float</span> <span class="n">scale</span> <span class="o">=</span> <span class="mf">1.0f</span><span class="o">;</span>
+        <span class="kt">int</span> <span class="n">bSize</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">min</span><span class="o">(</span><span class="n">bitmap</span><span class="o">.</span><span class="na">getWidth</span><span class="o">(),</span> <span class="n">bitmap</span><span class="o">.</span><span class="na">getHeight</span><span class="o">());</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="n">getWidth</span><span class="o">()</span> <span class="o">*</span> <span class="mf">1.0f</span> <span class="o">/</span> <span class="n">bSize</span><span class="o">;</span>
+        <span class="n">matrix</span><span class="o">.</span><span class="na">setScale</span><span class="o">(</span><span class="n">scale</span><span class="o">,</span> <span class="n">scale</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">bitmap</span><span class="o">.</span><span class="na">getWidth</span><span class="o">()</span> <span class="o">&gt;</span> <span class="n">bitmap</span><span class="o">.</span><span class="na">getHeight</span><span class="o">())</span> <span class="o">{</span>
+            <span class="n">matrix</span><span class="o">.</span><span class="na">postTranslate</span><span class="o">(-(</span><span class="n">bitmap</span><span class="o">.</span><span class="na">getWidth</span><span class="o">()</span> <span class="o">*</span> <span class="n">scale</span> <span class="o">-</span> <span class="n">getWidth</span><span class="o">())</span> <span class="o">/</span> <span class="mi">2</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="n">matrix</span><span class="o">.</span><span class="na">postTranslate</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="o">-(</span><span class="n">bitmap</span><span class="o">.</span><span class="na">getHeight</span><span class="o">()</span> <span class="o">*</span> <span class="n">scale</span> <span class="o">-</span> <span class="n">getHeight</span><span class="o">())</span> <span class="o">/</span> <span class="mi">2</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="n">tshader</span><span class="o">.</span><span class="na">setLocalMatrix</span><span class="o">(</span><span class="n">matrix</span><span class="o">);</span>
+        <span class="n">paint</span><span class="o">.</span><span class="na">setShader</span><span class="o">(</span><span class="n">tshader</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="n">Bitmap</span> <span class="nf">drawableToBitmap</span><span class="o">(</span><span class="n">Drawable</span> <span class="n">drawable</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">drawable</span> <span class="k">instanceof</span> <span class="n">BitmapDrawable</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">BitmapDrawable</span> <span class="n">bitmapDrawable</span> <span class="o">=</span> <span class="o">(</span><span class="n">BitmapDrawable</span><span class="o">)</span> <span class="n">drawable</span><span class="o">;</span>
+            <span class="k">return</span> <span class="n">bitmapDrawable</span><span class="o">.</span><span class="na">getBitmap</span><span class="o">();</span>
+        <span class="o">}</span>
+        <span class="kt">int</span> <span class="n">w</span> <span class="o">=</span> <span class="n">drawable</span><span class="o">.</span><span class="na">getIntrinsicWidth</span><span class="o">();</span>
+        <span class="kt">int</span> <span class="n">h</span> <span class="o">=</span> <span class="n">drawable</span><span class="o">.</span><span class="na">getIntrinsicHeight</span><span class="o">();</span>
+        <span class="n">Bitmap</span> <span class="n">bitmap</span> <span class="o">=</span> <span class="n">Bitmap</span><span class="o">.</span><span class="na">createBitmap</span><span class="o">(</span><span class="n">w</span><span class="o">,</span> <span class="n">h</span><span class="o">,</span> <span class="n">Bitmap</span><span class="o">.</span><span class="na">Config</span><span class="o">.</span><span class="na">ARGB_8888</span><span class="o">);</span>
+        <span class="n">Canvas</span> <span class="n">canvas</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Canvas</span><span class="o">(</span><span class="n">bitmap</span><span class="o">);</span>
+        <span class="n">drawable</span><span class="o">.</span><span class="na">setBounds</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">w</span><span class="o">,</span> <span class="n">h</span><span class="o">);</span>
+        <span class="n">drawable</span><span class="o">.</span><span class="na">draw</span><span class="o">(</span><span class="n">canvas</span><span class="o">);</span>
+        <span class="k">return</span> <span class="n">bitmap</span><span class="o">;</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="5-颜色">(5) 颜色：</h3>
+<p>在onDraw()中,getPaint()得到了从mStartColor到mEndColor的过渡的颜色：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   <span class="n">Paint</span> <span class="n">paint</span> <span class="o">=</span> <span class="n">getPaint</span><span class="o">(</span><span class="n">mStartColor</span><span class="o">,</span> <span class="n">mEndColor</span><span class="o">,</span> <span class="mi">360</span><span class="o">);</span>
+</code></pre></div></div>
+<p>其中：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="kd">private</span> <span class="n">Paint</span> <span class="nf">getPaint</span><span class="o">(</span><span class="kt">int</span> <span class="n">startColor</span><span class="o">,</span> <span class="kt">int</span> <span class="n">endColor</span><span class="o">,</span> <span class="kt">double</span> <span class="n">arcWidth</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">Paint</span> <span class="n">paint</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Paint</span><span class="o">();</span>
+        <span class="n">Shader</span> <span class="n">shader</span> <span class="o">=</span> <span class="k">new</span> <span class="n">LinearGradient</span><span class="o">(</span><span class="mi">0</span><span class="n">f</span><span class="o">,</span> <span class="mi">0</span><span class="n">f</span><span class="o">,</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="o">(</span><span class="n">getWidth</span><span class="o">()</span> <span class="o">*</span> <span class="n">circleDia</span> <span class="o">*</span> <span class="o">(</span><span class="n">arcWidth</span> <span class="o">-</span> <span class="n">ARC_WIDTH</span> <span class="o">*</span> <span class="mi">4</span><span class="o">)</span> <span class="o">/</span> <span class="mi">360</span><span class="o">),</span>
+                <span class="n">getHeight</span><span class="o">()</span> <span class="o">*</span> <span class="n">strokeWidth</span><span class="o">,</span> <span class="n">startColor</span><span class="o">,</span> <span class="n">endColor</span><span class="o">,</span> <span class="n">CLAMP</span><span class="o">);</span>
+        <span class="n">paint</span><span class="o">.</span><span class="na">setShader</span><span class="o">(</span><span class="n">shader</span><span class="o">);</span>
+        <span class="n">setPaintStroke</span><span class="o">(</span><span class="n">paint</span><span class="o">);</span>
+        <span class="k">return</span> <span class="n">paint</span><span class="o">;</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+<p>###(6) 重写onMeasure()：
+因为该控件是圆形，所以还需要重写onMeasure()方法，使其最后长和高一致，并针对MATCH_PARENT和WRAP_CONTENT以及指定具体宽高的情况下分别处理，注意WRAP_CONTENT下这里是指定了最大宽/高为300px，这与ImageView不同。代码如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onMeasure</span><span class="o">(</span><span class="kt">int</span> <span class="n">widthMeasureSpec</span><span class="o">,</span> <span class="kt">int</span> <span class="n">heightMeasureSpec</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">widthSpecMode</span> <span class="o">=</span> <span class="n">MeasureSpec</span><span class="o">.</span><span class="na">getMode</span><span class="o">(</span><span class="n">widthMeasureSpec</span><span class="o">);</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">widthSpecSize</span> <span class="o">=</span> <span class="n">MeasureSpec</span><span class="o">.</span><span class="na">getSize</span><span class="o">(</span><span class="n">widthMeasureSpec</span><span class="o">);</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">heightSpecMode</span> <span class="o">=</span> <span class="n">MeasureSpec</span><span class="o">.</span><span class="na">getMode</span><span class="o">(</span><span class="n">heightMeasureSpec</span><span class="o">);</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">heightSpecSize</span> <span class="o">=</span> <span class="n">MeasureSpec</span><span class="o">.</span><span class="na">getSize</span><span class="o">(</span><span class="n">heightMeasureSpec</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">DEBUG</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"onMeasure widthMeasureSpec:"</span> <span class="o">+</span> <span class="n">widthSpecMode</span> <span class="o">+</span> <span class="s">"--"</span> <span class="o">+</span> <span class="n">widthSpecSize</span><span class="o">);</span>
+            <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"onMeasure heightMeasureSpec:"</span> <span class="o">+</span> <span class="n">heightSpecMode</span> <span class="o">+</span> <span class="s">"--"</span> <span class="o">+</span> <span class="n">heightSpecSize</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="kt">int</span> <span class="n">width</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">widthSpecMode</span> <span class="o">==</span> <span class="n">MeasureSpec</span><span class="o">.</span><span class="na">EXACTLY</span> <span class="o">&amp;&amp;</span> <span class="n">heightSpecMode</span> <span class="o">==</span> <span class="n">MeasureSpec</span><span class="o">.</span><span class="na">EXACTLY</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">width</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">min</span><span class="o">(</span><span class="n">widthSpecSize</span><span class="o">,</span> <span class="n">heightSpecSize</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="n">width</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">min</span><span class="o">(</span><span class="n">widthSpecSize</span><span class="o">,</span> <span class="n">heightSpecSize</span><span class="o">);</span>
+            <span class="n">width</span> <span class="o">=</span> <span class="n">Math</span><span class="o">.</span><span class="na">min</span><span class="o">(</span><span class="n">width</span><span class="o">,</span> <span class="mi">300</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="n">setMeasuredDimension</span><span class="o">(</span><span class="n">width</span><span class="o">,</span> <span class="n">width</span><span class="o">);</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+
+<h2 id="总结">总结</h2>
+<p>InsLoadingAnimation主要是由属性动画实现，也加深了对View的生命周期和事件传递等方法的理解。更进一步的，也练习了canvas上的绘图。最后我们就有了和Instagram和微博一样炫酷的动画效果~ 如果你觉得不错，赶快去https://github.com/qintong91/InsLoadingAnimation star/fork一下吧，欢迎交流和建议~</p>
+
+<p><img src="http://upload-images.jianshu.io/upload_images/3535590-70192906d0bca717.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="这么牛逼的项目，你不star一个么" /></p>
+
+  </div>
+
+  
+</article>
+
+      </div>
+    </main>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">QinTong Blog</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>
+            
+              QinTong Blog
+            
+            </li>
+            
+            <li><a href="mailto:qintong5900@163.com">qintong5900@163.com</a></li>
+            
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/qintong91"><span class="icon icon--github"><svg viewBox="0 0 16 16" width="16px" height="16px"><path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/></svg>
+</span><span class="username">qintong91</span></a>
+
+          </li>
+          
+
+          
+          <li>
+            <a href="https://twitter.com/jekyllrb"><span class="icon icon--twitter"><svg viewBox="0 0 16 16" width="16px" height="16px"><path fill="#828282" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"/></svg>
+</span><span class="username">jekyllrb</span></a>
+
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-3">
+        <p>Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>

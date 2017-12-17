@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Dagger2：Scope, Component间依赖和subComponent</title>
+  <meta name="description" content="在上一篇文章(http://www.jianshu.com/p/f56d5b7e8b4d)中，我们接触到了Dagger2的基本用法。然而在实际Android开发当中，还会有更进一步的需求：需要有多个不同生命周期的多个Component，例如，有些依赖图是全局单例的，而有些依赖图会与Activity/Fragmen...">
+
+  <link rel="stylesheet" href="/assets/main.css">
+  <link rel="canonical" href="http://localhost:4000/android/2017/10/23/Dagger2(2).html">
+  <link rel="alternate" type="application/rss+xml" title="QinTong Blog" href="/feed.xml">
+  
+  
+</head>
+
+
+  <body>
+
+    <header class="site-header" role="banner">
+
+  <div class="wrapper">
+    
+    
+    <a class="site-title" href="/">QinTong Blog</a>
+  
+    
+      <nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger">
+          
+            
+            
+          
+            
+            
+            <a class="page-link" href="/about/">About</a>
+            
+          
+            
+            
+          
+            
+            
+          
+            
+            
+          
+        </div>
+      </nav>
+    
+  </div>
+</header>
+
+
+    <main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">Dagger2：Scope, Component间依赖和subComponent</h1>
+    <p class="post-meta">
+      <time datetime="2017-10-23T17:45:39+08:00" itemprop="datePublished">
+        
+        Oct 23, 2017
+      </time>
+      </p>
+  </header>
+
+  <div class="post-content" itemprop="articleBody">
+    <p>在上一篇文章(http://www.jianshu.com/p/f56d5b7e8b4d)中，我们接触到了Dagger2的基本用法。然而在实际Android开发当中，还会有更进一步的需求：需要有多个不同生命周期的多个Component，例如，有些依赖图是全局单例的，而有些依赖图会与Activity/Fragment同周期，或者有些依赖图是要与用户登录同周期。在这些情况下，我们就需要自定义Scope来维护多个Component各自依赖图的生命周期。更进一步的，我们讨论利用Component间的依赖和subComponent两种方法来创建多个Component。</p>
+<h3 id="1-scope">1. Scope</h3>
+<p>Scope注解是JSR-330标准中的，该注解是用来修饰其他注解的。 前篇文章提到的@Singleton就是一个被Scope标注的注解，是Scope的一个默认实现。
+Scope的注解的作用，是在一个Component的作用域中，依赖为单例的。也就是说同一个Component对象向各个类中注入依赖时候，注入的是同一个对象，而并非每次都new一个对象。
+在这里，我们再介绍自定义的Scope注解，如：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Scope</span>
+<span class="kd">public</span> <span class="nd">@interface</span> <span class="n">ActivityScope</span> <span class="o">{</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>如上，ActivityScope就是一个我们自己定义的Scope注解，其使用方式与上篇文章中我们用Singleton的用法类似的。顾名思义，在实际应用中Singleton代表了全局的单例，而我们定义ActivityScope代表了在Activity生命周期中相关依赖是单例的。
+Scope的注解具体用法如下：<br />
+(1). 首先用其修饰Component<br />
+(2). 如果依赖由Module的Provides或Binds方法提供，且该依赖在此Component中为单例的，则用Scope相关注解修饰Module的Provides和Binds方法。<br />
+(3). 如果依赖通过构造方式注入，且该依赖在此Component中为单例的，则要用Scope修饰其类。
+我们通过如下例子详细说明，并进行测试和分析其原理：</p>
+
+<p>以Singleton这个Scope是实现为例：
+首先用它来修饰Component类：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Singleton</span>
+<span class="nd">@Component</span>
+<span class="kd">public</span> <span class="kd">interface</span> <span class="nc">AppComponent</span> <span class="o">{</span>
+    <span class="kt">void</span> <span class="nf">inject</span><span class="o">(</span><span class="n">MainActivity</span> <span class="n">mainActivity</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>用通过构造方法注入依赖图的，用@Singleton修饰其类：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Singleton</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">InfoRepository</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">TAG</span> <span class="o">=</span> <span class="s">"InfoRepository"</span><span class="o">;</span>
+
+    <span class="nd">@Inject</span>
+    <span class="n">InfoRepository</span><span class="o">()</span> <span class="o">{</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">test</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"test"</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>实际注入到Activity类中如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MainActivity</span> <span class="kd">extends</span> <span class="n">Activity</span> <span class="o">{</span>
+    <span class="nd">@Inject</span>
+    <span class="n">InfoRepository</span> <span class="n">infoRepositoryA</span><span class="o">;</span>
+    <span class="nd">@Inject</span>
+    <span class="n">InfoRepository</span> <span class="n">infoRepositoryB</span><span class="o">;</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="n">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+        <span class="n">MyApplication</span><span class="o">.</span><span class="na">getComponent</span><span class="o">().</span><span class="na">inject</span><span class="o">(</span><span class="k">this</span><span class="o">);</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="n">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">activity_main</span><span class="o">);</span>
+        <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="s">"test"</span><span class="o">,</span> <span class="s">"a:"</span><span class="o">+</span><span class="n">infoRepositoryA</span><span class="o">.</span><span class="na">hashCode</span><span class="o">());</span>
+        <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="s">"test"</span><span class="o">,</span> <span class="s">"b:"</span><span class="o">+</span><span class="n">infoRepositoryB</span><span class="o">.</span><span class="na">hashCode</span><span class="o">());</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>如上代码测试结果如下：</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>10-19 19:25:08.253 26699-26699/com.qt.daggerTest D/test: a:442589
+10-19 19:25:08.254 26699-26699/com.qt.daggerTest D/test: b:442589
+</code></pre></div></div>
+<p>如上可见，两次注入的InfoRepository对象为同一个。
+如果将上面修饰InfoRepository的@Singleton注解去掉，结果是什么呢？经过测试如下：</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>10-19 19:23:00.092 23014-23014/com.qt.daggerTest D/test: a:442589
+10-19 19:23:00.092 23014-23014/com.qt.daggerTest D/test: b:160539730
+</code></pre></div></div>
+<p>也就是说在不加@Singleton注解时候，每次注入的时候都是new一个新的对象。
+注意，如果我们将上面所有的@Singleton替换成我们自己的Scope注解其结果也是一致的，如替换成上文的ActivityScope。</p>
+
+<p>下面，我们通过分析Dagger自动生成的代码来分析如何实现单例的：</p>
+
+<p>在注入类不加@Singleton注解时，生成的DaggerAppComponent类的initialize()方法如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unchecked"</span><span class="o">)</span>
+  <span class="kd">private</span> <span class="kt">void</span> <span class="nf">initialize</span><span class="o">(</span><span class="kd">final</span> <span class="n">Builder</span> <span class="n">builder</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">mainActivityMembersInjector</span> <span class="o">=</span>
+        <span class="n">MainActivity_MembersInjector</span><span class="o">.</span><span class="na">create</span><span class="o">(</span><span class="n">InfoRepository_Factory</span><span class="o">.</span><span class="na">create</span><span class="o">());</span>
+  <span class="o">}</span>
+</code></pre></div></div>
+<p>而加@Singleton注解后的initialize()方法变成了：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unchecked"</span><span class="o">)</span>
+  <span class="kd">private</span> <span class="kt">void</span> <span class="nf">initialize</span><span class="o">(</span><span class="kd">final</span> <span class="n">Builder</span> <span class="n">builder</span><span class="o">)</span> <span class="o">{</span>
+
+    <span class="k">this</span><span class="o">.</span><span class="na">infoRepositoryProvider</span> <span class="o">=</span> <span class="n">DoubleCheck</span><span class="o">.</span><span class="na">provider</span><span class="o">(</span><span class="n">InfoRepository_Factory</span><span class="o">.</span><span class="na">create</span><span class="o">());</span>
+
+    <span class="k">this</span><span class="o">.</span><span class="na">mainActivityMembersInjector</span> <span class="o">=</span>
+        <span class="n">MainActivity_MembersInjector</span><span class="o">.</span><span class="na">create</span><span class="o">(</span><span class="n">infoRepositoryProvider</span><span class="o">);</span>
+  <span class="o">}</span>
+</code></pre></div></div>
+<p>也是就是说提供InfoRepository的InfoRepositoryProvider替换成了DoubleCheck.provider(InfoRepository_Factory.create())。用DoubleCheck包装了原来对象的Provider。DoubleCheck顾名思义，应该是通过双重检查实现单例，我们看源码确实如此：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">DoubleCheck</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="kd">implements</span> <span class="n">Provider</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;,</span> <span class="n">Lazy</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">{</span>
+  <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">Object</span> <span class="n">UNINITIALIZED</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Object</span><span class="o">();</span>
+
+  <span class="kd">private</span> <span class="kd">volatile</span> <span class="n">Provider</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">provider</span><span class="o">;</span>
+  <span class="kd">private</span> <span class="kd">volatile</span> <span class="n">Object</span> <span class="n">instance</span> <span class="o">=</span> <span class="n">UNINITIALIZED</span><span class="o">;</span>
+
+  <span class="kd">private</span> <span class="nf">DoubleCheck</span><span class="o">(</span><span class="n">Provider</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">provider</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">assert</span> <span class="n">provider</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">provider</span> <span class="o">=</span> <span class="n">provider</span><span class="o">;</span>
+  <span class="o">}</span>
+
+  <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unchecked"</span><span class="o">)</span> <span class="c1">// cast only happens when result comes from the provider</span>
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="n">T</span> <span class="nf">get</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">Object</span> <span class="n">result</span> <span class="o">=</span> <span class="n">instance</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">result</span> <span class="o">==</span> <span class="n">UNINITIALIZED</span><span class="o">)</span> <span class="o">{</span>
+      <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">instance</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">result</span> <span class="o">==</span> <span class="n">UNINITIALIZED</span><span class="o">)</span> <span class="o">{</span>
+          <span class="n">result</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+          <span class="cm">/* Get the current instance and test to see if the call to provider.get() has resulted
+           * in a recursive call.  If it returns the same instance, we'll allow it, but if the
+           * instances differ, throw. */</span>
+          <span class="n">Object</span> <span class="n">currentInstance</span> <span class="o">=</span> <span class="n">instance</span><span class="o">;</span>
+          <span class="k">if</span> <span class="o">(</span><span class="n">currentInstance</span> <span class="o">!=</span> <span class="n">UNINITIALIZED</span> <span class="o">&amp;&amp;</span> <span class="n">currentInstance</span> <span class="o">!=</span> <span class="n">result</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span><span class="s">"Scoped provider was invoked recursively returning "</span>
+                <span class="o">+</span> <span class="s">"different results: "</span> <span class="o">+</span> <span class="n">currentInstance</span> <span class="o">+</span> <span class="s">" &amp; "</span> <span class="o">+</span> <span class="n">result</span> <span class="o">+</span> <span class="s">". This is likely "</span>
+                <span class="o">+</span> <span class="s">"due to a circular dependency."</span><span class="o">);</span>
+          <span class="o">}</span>
+          <span class="n">instance</span> <span class="o">=</span> <span class="n">result</span><span class="o">;</span>
+          <span class="cm">/* Null out the reference to the provider. We are never going to need it again, so we
+           * can make it eligible for GC. */</span>
+          <span class="n">provider</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="o">}</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="o">(</span><span class="n">T</span><span class="o">)</span> <span class="n">result</span><span class="o">;</span>
+  <span class="o">...</span>
+  <span class="o">}</span>
+</code></pre></div></div>
+<p>其get方法就用了DoubleCheck方式保证了单例，其中还判断如果存在循环依赖的情况下抛出异常。</p>
+
+<p>注意，Scope只的单例是在Component的生命周期中相关依赖是单例的，也就是同一个Component对象注入的同类型的依赖是相同的。按上面例子，如果我们又创建了个AppComponent，它注入的InfoRepository对象与之前的肯定不是一个。</p>
+
+<h3 id="2-component间依赖">2. Component间依赖</h3>
+<p>在Android应用中，如果我们需要不止一个Component，而Component的依赖图中有需要其他Component依赖图中的某些依赖时候，利用Component间依赖（Component Dependency）方式是个很好的选择。在新建Component类时候可以在@Component注解里设置dependencies属性，确定其依赖的Component。在被依赖的Component中，如果要暴露其依赖图中的某个依赖给其他Component，要显示的在其中定义方法，使该依赖对其他Component可见如：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Singleton</span>
+<span class="nd">@Component</span><span class="o">(</span><span class="n">modules</span> <span class="o">=</span> <span class="n">AppModule</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kd">interface</span> <span class="nc">AppComponent</span> <span class="o">{</span>
+    <span class="n">Application</span> <span class="nf">application</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@ActivityScope</span>
+<span class="nd">@Component</span><span class="o">(</span><span class="n">dependencies</span> <span class="o">=</span> <span class="n">AppComponent</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="n">modules</span> <span class="o">=</span> <span class="n">ActivityModule</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kd">interface</span> <span class="nc">ActivityComponent</span> <span class="o">{</span>
+    <span class="kt">void</span> <span class="nf">inject</span><span class="o">(</span><span class="n">MainActivity</span> <span class="n">mainActivity</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>在ActivityComponent中，就可以使用AppComponent依赖图中暴露出的Application依赖了。
+非常清晰，Component依赖(Component Dependency)的方式适用于Component只将某个或某几个依赖暴露给其他Component的情况下。</p>
+<h3 id="3subcomponent">3.subComponent</h3>
+<p>定义subComponent是另一种方式使Component将依赖暴露给其他Component。当我们需要一个Component，它需要继承另外一个Component的所有依赖时，我们可以定义其为subComponent。
+具体用法如下：首先在父Component的接口中定义方法，来获得可以继承它的subComponent：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Singleton</span>
+<span class="nd">@Component</span><span class="o">(</span>
+        <span class="n">modules</span> <span class="o">=</span> <span class="o">{</span><span class="n">AppModule</span><span class="o">.</span><span class="na">class</span><span class="o">}</span>
+<span class="o">)</span>
+<span class="kd">public</span> <span class="kd">interface</span> <span class="nc">AppComponent</span> <span class="o">{</span>
+
+    <span class="n">UserComponent</span> <span class="nf">plus</span><span class="o">(</span><span class="n">UserModule</span> <span class="n">userModule</span><span class="o">);</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+<p>其次，其subComponent被@SubComponent注解修饰，如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@UserScope</span>
+<span class="nd">@Subcomponent</span><span class="o">(</span>
+        <span class="n">modules</span> <span class="o">=</span> <span class="o">{</span><span class="n">UserModule</span><span class="o">.</span><span class="na">class</span><span class="o">}</span>
+<span class="o">)</span>
+<span class="kd">public</span> <span class="kd">interface</span> <span class="nc">UserComponent</span> <span class="o">{</span>
+  <span class="o">...</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>Dagger会实现上面在接口中定义的plus()方法，我们通过调用父Component的plus方法或者对应的subComponent实例，具体如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">userComponent</span> <span class="o">=</span> <span class="n">appComponent</span><span class="o">.</span><span class="na">plus</span><span class="o">(</span><span class="k">new</span> <span class="n">UserModule</span><span class="o">(</span><span class="n">user</span><span class="o">));</span>
+</code></pre></div></div>
+<p>这样，我们就获得了userComponent对象，可以利用他为其他类注入依赖了。
+注意，subComponent继承了其父Component的所有依赖图，也就是说被subComponent可以向其他类注入其父Component的所有依赖。</p>
+
+<h3 id="4-用多个component组织你的android应用">4. 用多个Component组织你的Android应用</h3>
+<p>前面几部分中，我们介绍了如何创建多个Component/subComponent并使其获得其他Component的依赖。这就为我们在应用中用多个Component组织组织应用提供了条件。文章http://frogermcs.github.io/dependency-injection-with-dagger-2-custom-scopes/ 提供了一个常用的思路：我们大概需要三个Component：AppComponent，UserComponent，ActivityComponent，如下：
+<img src="http://upload-images.jianshu.io/upload_images/3535590-ae4a533a387487da.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="摘自http://frogermcs.github.io/dependency-injection-with-dagger-2-custom-scopes/" /></p>
+
+<p>上文介绍了，各个Component要有自己的Scope且不能相同，所以这几个Component对应的Scope分别为@Singleton ，@UserScop，@ActivityScope。也就是说，依赖在对应的Component生命周期(同个Component中)中都是单例的。而三个Component的生命周期都不同：AppComponent为应用全局单例的，UserComponent的生命周期对应了用户登录的生命周期(从用户登录一个账户到用户退出登录)，ActivityComponent对应了每个Activity的生命周期，如下：</p>
+
+<p><img src="http://upload-images.jianshu.io/upload_images/3535590-5287d0835bd38933.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="Scopes lifecycle  摘自http://frogermcs.github.io/dependency-injection-with-dagger-2-custom-scopes/" />
+在具体代码中，我们通过控制Component对象的生命周期来控制依赖图的周期，以UserComponent为例，在用户登录时候创建UserComponent实例，期间一直用该实例为相关类注入依赖，当其退出时候将UserComponent实例设为空，下次登录时候重新创建个UserComponent，大致如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyApplication</span> <span class="kd">extends</span> <span class="n">Application</span> <span class="o">{</span>
+      <span class="o">...</span>
+    <span class="kd">private</span> <span class="kt">void</span> <span class="nf">initAppComponent</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">appComponent</span> <span class="o">=</span> <span class="n">DaggerAppComponent</span><span class="o">.</span><span class="na">builder</span><span class="o">()</span>
+                <span class="o">.</span><span class="na">appModule</span><span class="o">(</span><span class="k">new</span> <span class="n">AppModule</span><span class="o">(</span><span class="k">this</span><span class="o">))</span>
+                <span class="o">.</span><span class="na">build</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="n">UserComponent</span> <span class="nf">createUserComponent</span><span class="o">(</span><span class="n">User</span> <span class="n">user</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">userComponent</span> <span class="o">=</span> <span class="n">appComponent</span><span class="o">.</span><span class="na">plus</span><span class="o">(</span><span class="k">new</span> <span class="n">UserModule</span><span class="o">(</span><span class="n">user</span><span class="o">));</span>
+        <span class="k">return</span> <span class="n">userComponent</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">releaseUserComponent</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">userComponent</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="n">AppComponent</span> <span class="nf">getAppComponent</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">appComponent</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="n">UserComponent</span> <span class="nf">getUserComponent</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">userComponent</span><span class="o">;</span>
+    <span class="o">}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+<p>createUserComponent和releaseUserComponent在用户登入和登出时候调用，所以在不同用户中用的是不同UserComponent对象注入，注入的依赖也不同。而AppComponent对象只有一个，所以其依赖图中的依赖为全局单例的。而对于ActivityComponent，则可以在Activity的onCreate()中生成ActivityComponent对象来为之注入依赖。</p>
+
+<h4 id="5多component情况下scope的使用限制">5.多Component情况下Scope的使用限制</h4>
+<p>Scope和多个Component在具体使用时候有一下几点限制需要注意：<br />
+(1). Component和他所依赖的Component不能公用相同的Scope，每个Component都要有自己的Scope，编译时会报错，因为这有可能破坏Scope的范围，可详见https://github.com/google/dagger/issues/107#issuecomment-71073298。这种情况下编译会报错：</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error:(21, 1) 错误:com.qt.daggerTest.AppComponent depends on scoped components in a non-hierarchical scope ordering:
+@com.qt.daggerTest.ActivityScope com.qt.daggerTest.AppComponent
+@com.qt.daggerTest.ActivityScope com.qt.daggerTest.ActivityComponent
+</code></pre></div></div>
+<p>(2). @Singleton的Component不能依赖其他Component。这从意义和规范上也是说的通的，我们希望Singleton的Component应为全局的Component。这种情况下编译时会报错：</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error:(23, 1) 错误: This @Singleton component cannot depend on scoped components:
+@Singleton com.qt.daggerTest.AppComponent
+</code></pre></div></div>
+<p>(3). 无Scope的Component不能依赖有Scope的Component，因为这也会导致Scope被破坏。这时候编译时会报错：</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error:(20, 2) 错误: com.qt.daggerTest.ActivityComponent (unscoped) cannot depend on scoped components:
+@com.qt.daggerTest.ActivityScope com.qt.daggerTest.AppComponent
+</code></pre></div></div>
+<p>(4). Module以及通过构造函数注入依赖图的类和其Component不可有不相同的Scope，这种情况下编译时会报：</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Error:(6, 1) 错误: com.qt.daggerTest.AppComponent scoped with @com.qt.daggerTest.ActivityScope may not reference bindings with different scopes:
+@Singleton class com.qt.daggerTest.InfoRepository
+</code></pre></div></div>
+
+<h4 id="总结">总结</h4>
+<p>在上一篇Dagger2介绍与使用(http://www.jianshu.com/p/f56d5b7e8b4d)的基础之上，本文围绕着Android中多个Component情况下如何使用的问题展开了分析。首先说明了如何通过Scope和Component管理依赖的生命周期，再介绍了通过Component间依赖和subComponent两种方式完成一个Component将自己的依赖图暴露给其他Component的过程。然后介绍如一般在Android应用中如何划分Component，维护不同生命周期的依赖。
+经过两篇文章的介绍，Dagger2的使用基本清晰。Dagger2在处理Android应用的依赖非常得心应手，通过依赖注入的方式实现依赖反转，用容器(Component)来控制了所有依赖，使应用各个组件的依赖更加清晰。Dagger2的各种功能也比较灵活，能够应付Android应用依赖关系的各种复杂场景。</p>
+
+<p>参考：<br />
+https://stackoverflow.com/questions/28411352/what-determines-the-lifecycle-of-a-component-object-graph-in-dagger-2
+ http://frogermcs.github.io/dependency-injection-with-dagger-2-custom-scopes/
+https://stackoverflow.com/questions/36447251/dagger-2-constructor-injection-scope
+http://www.jianshu.com/p/5ce4dcc41ec7
+http://www.jianshu.com/p/fbd62868a07b
+https://my.oschina.net/rengwuxian/blog/287892</p>
+
+  </div>
+
+  
+</article>
+
+      </div>
+    </main>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">QinTong Blog</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>
+            
+              QinTong Blog
+            
+            </li>
+            
+            <li><a href="mailto:qintong5900@163.com">qintong5900@163.com</a></li>
+            
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/qintong91"><span class="icon icon--github"><svg viewBox="0 0 16 16" width="16px" height="16px"><path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/></svg>
+</span><span class="username">qintong91</span></a>
+
+          </li>
+          
+
+          
+          <li>
+            <a href="https://twitter.com/jekyllrb"><span class="icon icon--twitter"><svg viewBox="0 0 16 16" width="16px" height="16px"><path fill="#828282" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"/></svg>
+</span><span class="username">jekyllrb</span></a>
+
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-3">
+        <p>Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>

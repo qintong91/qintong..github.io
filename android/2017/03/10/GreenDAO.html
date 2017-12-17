@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Android ORM 框架 greenDao 3.x 第一篇： 介绍，使用与踩坑</title>
+  <meta name="description" content="最近接触greenDao3.x，总结一些业务中用到的东西和坑。 greenDao 到3.x之后用法比2.x和1.x时候更加简单，通过对bean类增加注解实现持续化。 许多文章介绍了大致情况，如 http://www.jianshu.com/p/f2737d23cb2a">
+
+  <link rel="stylesheet" href="/assets/main.css">
+  <link rel="canonical" href="http://localhost:4000/android/2017/03/10/GreenDAO.html">
+  <link rel="alternate" type="application/rss+xml" title="QinTong Blog" href="/feed.xml">
+  
+  
+</head>
+
+
+  <body>
+
+    <header class="site-header" role="banner">
+
+  <div class="wrapper">
+    
+    
+    <a class="site-title" href="/">QinTong Blog</a>
+  
+    
+      <nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger">
+          
+            
+            
+          
+            
+            
+            <a class="page-link" href="/about/">About</a>
+            
+          
+            
+            
+          
+            
+            
+          
+            
+            
+          
+        </div>
+      </nav>
+    
+  </div>
+</header>
+
+
+    <main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">Android ORM 框架 greenDao 3.x 第一篇： 介绍，使用与踩坑</h1>
+    <p class="post-meta">
+      <time datetime="2017-03-10T15:22:39+08:00" itemprop="datePublished">
+        
+        Mar 10, 2017
+      </time>
+      </p>
+  </header>
+
+  <div class="post-content" itemprop="articleBody">
+    <p>最近接触greenDao3.x，总结一些业务中用到的东西和坑。
+greenDao 到3.x之后用法比2.x和1.x时候更加简单，通过对bean类增加注解实现持续化。
+许多文章介绍了大致情况，如 http://www.jianshu.com/p/f2737d23cb2a</p>
+
+<p>如何上手和了解大致情况也可以阅读greenDao的官方文档 http://greenrobot.org/greendao/</p>
+
+<p>其他文章介绍的东西就不再重复了，本文总结一下实际应用中用到的一些特性和遇到的坑。
+除了注解方式以外，实际上，3.X仍然支持像2.x中的generator的方式来生成相关类。并且generator支持更多新特性，如多schema，生成ContentProvider等，这些功能还不支持通过注解来实现。（见http://greenrobot.org/greendao/documentation/updating-to-greendao-3-and-annotations/）</p>
+
+<h3 id="1-greendao3x-原理简介">1. greenDao3.x 原理简介：</h3>
+<p>greenDao3.x引入了新的Gradle plugin：greendao-gradle-plugin 。用Gradle插件来生成所需要的类。greenrobot目前还没把gradle插件源码还没放出来。可以见所有注解都是@Retention(RetentionPolicy.SOURCE)。gradle plugin就是根据这些注解，为实体生成对应的各种类。
+主要的类包括：
+(1) DaoMaster ：Dao的顶层对象，包含DevOpenHelper内部类，并可以新建DaoSession。获取
+(2) DaoSession ：管理各个Dao类，用Map管理了各个Dao类的实例对象(key是Dao的类对象，value是实例对象)。
+(3) xxxDao:与Entity一一对应，管理对应的表，完成从对象到表的增删改查。我们实际对实例对象的操作都是通过该Entity对应的Dao对象完成的。</p>
+
+<p>Database/DaoMaster/DaoSession对象的初始化过长如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="n">DaoMaster</span><span class="o">.</span><span class="na">DevOpenHelper</span> <span class="n">helper</span> <span class="o">=</span> <span class="k">new</span> <span class="n">DaoMaster</span><span class="o">.</span><span class="na">DevOpenHelper</span><span class="o">(</span><span class="n">application</span><span class="o">,</span>
+<span class="n">DATABASE_NAME</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+  <span class="n">SQLiteDatabase</span> <span class="n">db</span> <span class="o">=</span> <span class="n">helper</span><span class="o">.</span><span class="na">getWritableDatabase</span><span class="o">();</span>
+  <span class="n">DaoMaster</span> <span class="n">daoMaster</span> <span class="o">=</span> <span class="k">new</span> <span class="n">DaoMaster</span><span class="o">(</span><span class="n">db</span><span class="o">);</span>
+  <span class="n">mDaoSession</span> <span class="o">=</span> <span class="n">daoMaster</span><span class="o">.</span><span class="na">newSession</span><span class="o">();</span>
+</code></pre></div></div>
+
+<p>此外如果阅读源码还有xxxDaoConfig类。但此类为GreenDao的内部所用，实际不会应用到，  但对理解源码比较有帮助。</p>
+
+<h3 id="2-相关注解的实际用法">2. 相关注解的实际用法</h3>
+<p>(1) Entity：该注解是给bean类的。注意了，greenDao目前只支持一个Entity对应一张表(见https://github.com/greenrobot/greenDAO/issues/455#issuecomment-249790184)。
+一对多或者多对一目前还实现不了。如果有类似需求可以用ToOne 和 ToMany 代替(下文会介绍)。
+Entity的属性：
+indexes：可以用来创建该表的索引。可以与unique一同使用实现唯一索引，如：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Entity</span><span class="o">(</span><span class="n">indexes</span> <span class="o">=</span> <span class="o">{</span>
+        <span class="nd">@Index</span><span class="o">(</span><span class="n">value</span> <span class="o">=</span> <span class="s">"primaryCode, secondCode"</span><span class="o">,</span> <span class="n">unique</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
+<span class="o">})</span>
+</code></pre></div></div>
+<p>nameInDb：自定义Entity对应的表名(默认是用类名)
+createInDb：是否在数据库中创建该表，源码的注释这么说的：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="cm">/**
+     * Advanced flag to disable table creation in the database (when set to false). This can be used to create partial
+     * entities, which may use only a sub set of properties. Be aware however that greenDAO does not sync multiple
+     * entities, e.g. in caches.
+     */</span>
+</code></pre></div></div>
+<p>大意是在只需持久化某Entity类中的一部分属性时使用，不是特别理解，实操确实没创建该类的表。但貌似是不能实现多个实体对应到一张表里。希望有高人能解答该属性有何用。
+  (2).Id:被修饰的域会成为表中的主键，该Id对应了xxxDao类中相关操作中的Key。
+  (3).Convert：修饰域，如果Entity中的一个域的类型不能直接保存（比如枚举类型）或者该域的值与您想保存到数据库中的类型不一样的话，可以用Convert修改该域实际保存的类型。如下将Convert讲时间(String)转成了Long来保存。</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">TimeConverter</span> <span class="kd">implements</span> <span class="n">PropertyConverter</span><span class="o">&lt;</span><span class="n">String</span><span class="o">,</span> <span class="n">Long</span><span class="o">&gt;</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">TAG</span> <span class="o">=</span> <span class="s">"TimeConverter"</span><span class="o">;</span>
+    <span class="kd">static</span> <span class="n">SimpleDateFormat</span> <span class="n">formatter</span> <span class="o">=</span> <span class="k">new</span> <span class="n">SimpleDateFormat</span><span class="o">(</span><span class="s">"yyyy-MM-dd HH:mm:ss"</span><span class="o">);</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="n">String</span> <span class="nf">convertToEntityProperty</span><span class="o">(</span><span class="n">Long</span> <span class="n">databaseValue</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"convertToEntityProperty:"</span><span class="o">+</span><span class="n">formatter</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="k">new</span> <span class="n">Date</span><span class="o">(</span><span class="n">databaseValue</span><span class="o">)));</span>
+        <span class="k">return</span> <span class="n">formatter</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="k">new</span> <span class="n">Date</span><span class="o">(</span><span class="n">databaseValue</span><span class="o">));</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="n">Long</span> <span class="nf">convertToDatabaseValue</span><span class="o">(</span><span class="n">String</span> <span class="n">entityProperty</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="n">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"convertToDatabaseValue:"</span><span class="o">+</span><span class="n">formatter</span><span class="o">.</span><span class="na">parse</span><span class="o">(</span><span class="n">entityProperty</span><span class="o">).</span><span class="na">getTime</span><span class="o">());</span>
+            <span class="k">return</span> <span class="n">formatter</span><span class="o">.</span><span class="na">parse</span><span class="o">(</span><span class="n">entityProperty</span><span class="o">).</span><span class="na">getTime</span><span class="o">();</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">ParseException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">Log</span><span class="o">.</span><span class="na">e</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">());</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>(4).Index：与Indexs标签一起添加索引，见indexes标签。
+(5).ToOne/ToMany：Entity的某个域是Entity，对应数据库的表连接。ToOne为一对一，ToMany为该域是List，对应多个实体。
+要用joinProperty属性指明连接的key，该域对应被连接的Entity的Id。
+例：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="nd">@ToOne</span><span class="o">(</span><span class="n">joinProperty</span> <span class="o">=</span> <span class="s">"amountId"</span><span class="o">)</span>
+    <span class="kd">private</span> <span class="n">PaymentAmount</span> <span class="n">amount</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kt">long</span> <span class="n">amountId</span><span class="o">;</span>
+</code></pre></div></div>
+<p>注意：这里保存和读取时候都有坑：
+当存一个Entity的时候，与其ToOne和ToMany的Entity都不会被保存，需要单独再去存每个对象，并且要在设置amountId ：如：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="n">mPaymentAmountDao</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">paymentAmount</span><span class="o">);</span>
+    <span class="n">record</span><span class="o">.</span><span class="na">setAmountId</span><span class="o">(</span><span class="n">record</span><span class="o">.</span><span class="na">getAmount</span><span class="o">().</span><span class="na">getId</span><span class="o">());</span>
+    <span class="n">mPaymentRecordDao</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">record</span><span class="o">);</span>
+</code></pre></div></div>
+
+<h3 id="3-数据的增删改查">3. 数据的增删改查：</h3>
+<p>与Entity对应的Dao类提供了对应每个Entity的相关方法。这里列举一些常用的：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">save</span><span class="o">(</span><span class="n">T</span> <span class="n">entity</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">delete</span><span class="o">(</span><span class="n">T</span> <span class="n">entity</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">update</span><span class="o">(</span><span class="n">T</span> <span class="n">entity</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="kt">long</span> <span class="nf">insertOrReplace</span><span class="o">(</span><span class="n">T</span> <span class="n">entity</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">deleteAll</span><span class="o">()</span>
+  <span class="kd">public</span> <span class="n">Long</span> <span class="nf">getKey</span><span class="o">(</span><span class="n">PaymentRecord</span> <span class="n">entity</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">hasKey</span><span class="o">(</span><span class="n">PaymentRecord</span> <span class="n">entity</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="nf">loadAll</span><span class="o">()</span>
+  <span class="kd">public</span> <span class="n">PaymentRecord</span> <span class="nf">loadDeep</span><span class="o">(</span><span class="n">Long</span> <span class="n">key</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">PaymentRecord</span><span class="o">&gt;</span> <span class="nf">queryDeep</span><span class="o">(</span><span class="n">String</span> <span class="n">where</span><span class="o">,</span> <span class="n">String</span><span class="o">...</span> <span class="n">selectionArg</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="n">QueryBuilder</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="nf">queryBuilder</span><span class="o">()</span>
+</code></pre></div></div>
+<p>注意
+  (1) 如果该Entity有ToMany或者ToOne字段，该Dao类中会有xxxDeep的方法：该方法会一起获取ToMany和ToOne字段，也就是其ToMany和ToOne字段不为空(查询过程中会join相关的表)，如果用其他方法查询该对象的ToMany和ToOne字段是null。
+其中，queryDeep中的where和selectionArg直接传给数据库做查询，所以需要为数据库的相关字段名而非实体的，可见源码：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="cm">/** A raw-style query where you can pass any WHERE clause and arguments. */</span>
+    <span class="kd">public</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">PaymentRecord</span><span class="o">&gt;</span> <span class="nf">queryDeep</span><span class="o">(</span><span class="n">String</span> <span class="n">where</span><span class="o">,</span> <span class="n">String</span><span class="o">...</span> <span class="n">selectionArg</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">Cursor</span> <span class="n">cursor</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="na">rawQuery</span><span class="o">(</span><span class="n">getSelectDeep</span><span class="o">()</span> <span class="o">+</span> <span class="n">where</span><span class="o">,</span> <span class="n">selectionArg</span><span class="o">);</span>
+        <span class="k">return</span> <span class="nf">loadDeepAllAndCloseCursor</span><span class="o">(</span><span class="n">cursor</span><span class="o">);</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+<p>(2) queryBuilder
+这与SQLiteQueryBuilder不同，queryBuilder方法是直接对应的Entity的字段的，而非数据库。如：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        <span class="n">List</span><span class="o">&lt;</span><span class="n">DayRecord</span><span class="o">&gt;</span> <span class="n">list</span> <span class="o">=</span> <span class="n">mDayRecordDao</span><span class="o">.</span><span class="na">queryBuilder</span><span class="o">()</span>
+                <span class="o">.</span><span class="na">where</span><span class="o">(</span><span class="n">DayRecordDao</span><span class="o">.</span><span class="na">Properties</span><span class="o">.</span><span class="na">CurrencyCode</span><span class="o">.</span><span class="na">eq</span><span class="o">(</span><span class="n">currencyCode</span><span class="o">))</span>
+                <span class="o">.</span><span class="na">where</span><span class="o">(</span><span class="n">DayRecordDao</span><span class="o">.</span><span class="na">Properties</span><span class="o">.</span><span class="na">Day</span><span class="o">.</span><span class="na">eq</span><span class="o">(</span><span class="n">day</span><span class="o">)).</span><span class="na">list</span><span class="o">();</span>
+</code></pre></div></div>
+
+<p>(3) 这里查询是有缓存的:比如：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="n">Long</span> <span class="n">id</span> <span class="o">=</span> <span class="n">record1</span><span class="o">.</span><span class="na">getId</span><span class="o">();</span><span class="c1">//record1已保存过</span>
+  <span class="n">Record</span> <span class="n">record2</span> <span class="o">=</span> <span class="n">mRecordDao</span><span class="o">.</span><span class="na">loadDeep</span><span class="o">(</span><span class="n">id</span><span class="o">);</span>
+  <span class="kt">boolean</span> <span class="n">isSameObj</span> <span class="o">=</span> <span class="o">(</span><span class="n">record1</span> <span class="o">==</span> <span class="n">record2</span><span class="o">)</span> <span class="c1">// true</span>
+</code></pre></div></div>
+
+<p>如果record1被修改，还想读原来数据库中其值，请在loadDeep前调用：daoSession.clear()。</p>
+
+<p>自动生成的xxxDao类的代码可见 dentityScope为缓存，</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">abstract</span> <span class="kd">class</span> <span class="nc">AbstractDao</span><span class="o">&lt;</span><span class="n">T</span><span class="o">,</span> <span class="n">K</span><span class="o">&gt;</span> <span class="o">{</span>
+   <span class="o">...</span>
+  <span class="kd">protected</span> <span class="kd">final</span> <span class="n">IdentityScope</span><span class="o">&lt;</span><span class="n">K</span><span class="o">,</span> <span class="n">T</span><span class="o">&gt;</span> <span class="n">identityScope</span><span class="o">;</span>
+  <span class="o">...</span>
+  <span class="kd">public</span> <span class="nf">AbstractDao</span><span class="o">(</span><span class="n">DaoConfig</span> <span class="n">config</span><span class="o">,</span> <span class="n">AbstractDaoSession</span> <span class="n">daoSession</span><span class="o">)</span> <span class="o">{</span>
+         <span class="o">...</span>
+          <span class="n">identityScope</span> <span class="o">=</span> <span class="o">(</span><span class="n">IdentityScope</span><span class="o">&lt;</span><span class="n">K</span><span class="o">,</span> <span class="n">T</span><span class="o">&gt;)</span> <span class="n">config</span><span class="o">.</span><span class="na">getIdentityScope</span><span class="o">();</span>
+        <span class="o">...</span>
+      <span class="o">}</span>
+  <span class="o">}</span>
+</code></pre></div></div>
+<p>daoSession.clear()：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>      <span class="kd">public</span> <span class="kt">void</span> <span class="nf">clear</span><span class="o">()</span> <span class="o">{</span>
+          <span class="n">xxxDaoConfig</span><span class="o">.</span><span class="na">clearIdentityScope</span><span class="o">();</span>
+      <span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="4-相关的坑">4. 相关的坑：</h3>
+<p>(1)不支持Entity继承: Entity类在生成表和Dao类时候，是不支持其父类的相关属性的，即父类中的相关域不会在表中有对应字段。这就导致了所有的model类都不能继承，导致有些model类比较类似，也都需要都写两遍，破坏了代码结构。。蛋疼
+(2)不支持一个Entity对应多表,或多个Entity对应成一个表。蛋疼如上
+(3)不支持一个字段convert成多字段，智能convert成一个其他字段。蛋疼如上
+(4)注解方式不支持provider生成：不能自动生成provider。generator方式可以，但provider的功能还没完善。所以如果工程需要跨进程提供数据则还需要手动写provider。</p>
+
+<p>总结：整体来讲，GreenDao 作为对象持久化框架还是比较好用，但不足也比较明显：Entity的灵活性不足，有时Bean类的一些由于业务上的设计并不适合直接转成数据库表存储，而Entity映射到数据库表的方法灵活性不高，导致表结构和Bean类的结构要互相迁就。
+接下来后续还会再去总结GreenDao的数据库升级/加密等。</p>
+
+  </div>
+
+  
+</article>
+
+      </div>
+    </main>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">QinTong Blog</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>
+            
+              QinTong Blog
+            
+            </li>
+            
+            <li><a href="mailto:qintong5900@163.com">qintong5900@163.com</a></li>
+            
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/qintong91"><span class="icon icon--github"><svg viewBox="0 0 16 16" width="16px" height="16px"><path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/></svg>
+</span><span class="username">qintong91</span></a>
+
+          </li>
+          
+
+          
+          <li>
+            <a href="https://twitter.com/jekyllrb"><span class="icon icon--twitter"><svg viewBox="0 0 16 16" width="16px" height="16px"><path fill="#828282" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"/></svg>
+</span><span class="username">jekyllrb</span></a>
+
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-3">
+        <p>Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>
