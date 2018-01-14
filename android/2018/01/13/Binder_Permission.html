@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Android ContentProvider调用报错 &quot;Bad call: specified package xxx under uid 10032 but it is really 10001&quot; 及Binder权限问题分析</title>
+  <meta name="description" content="问题： 项目中有一下情况：进程A调用另一进程的Ｂ ContentProvider,Ｂ在该此次query中需要在query另一个 Ｃ ContentProvider: class BContentProvider extends ContentProvider { Context mContext; ... @Ov...">
+
+  <link rel="stylesheet" href="/assets/main.css">
+  <link rel="canonical" href="http://localhost:4000/android/2018/01/13/Binder_Permission.html">
+  <link rel="alternate" type="application/rss+xml" title="QinTong Blog" href="/feed.xml">
+  
+  
+</head>
+
+
+  <body>
+
+    <header class="site-header" role="banner">
+
+  <div class="wrapper">
+    
+    
+    <a class="site-title" href="/">QinTong Blog</a>
+  
+    
+      <nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger">
+          
+            
+            
+          
+            
+            
+            <a class="page-link" href="/about/">About</a>
+            
+          
+            
+            
+          
+            
+            
+          
+            
+            
+          
+        </div>
+      </nav>
+    
+  </div>
+</header>
+
+
+    <main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">Android ContentProvider调用报错 &quot;Bad call: specified package xxx under uid 10032 but it is really 10001&quot; 及Binder权限问题分析</h1>
+    <p class="post-meta">
+      <time datetime="2018-01-13T17:45:39+08:00" itemprop="datePublished">
+        
+        Jan 13, 2018
+      </time>
+      </p>
+  </header>
+
+  <div class="post-content" itemprop="articleBody">
+    <h3 id="问题">问题：</h3>
+<p>项目中有一下情况：进程A调用另一进程的Ｂ ContentProvider,Ｂ在该此次query中需要在query另一个 Ｃ ContentProvider:</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="kd">class</span> <span class="nc">BContentProvider</span> <span class="kd">extends</span> <span class="n">ContentProvider</span> <span class="o">{</span>
+        <span class="n">Context</span> <span class="n">mContext</span><span class="o">;</span>
+        <span class="o">...</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="n">Cursor</span> <span class="nf">query</span><span class="o">(</span><span class="n">Uri</span> <span class="n">uri</span><span class="o">,</span> <span class="n">String</span><span class="o">[]</span> <span class="n">projection</span><span class="o">,</span> <span class="n">String</span> <span class="n">selection</span><span class="o">,</span> <span class="n">String</span><span class="o">[]</span> <span class="n">selectionArgs</span><span class="o">,</span> <span class="n">String</span> <span class="n">sortOrder</span><span class="o">)</span> <span class="o">{</span>
+            <span class="o">...</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="c1">// query C ContentProvider：</span>
+                <span class="n">Cursor</span> <span class="n">cursor</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getContentResolver</span><span class="o">().</span><span class="na">query</span><span class="o">(...);</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">cursor</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="k">try</span> <span class="o">{</span>
+                        <span class="c1">//do something;</span>
+                    <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+                        <span class="n">cursor</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+                    <span class="o">}</span>
+                <span class="o">}</span>
+                <span class="n">Cursor</span> <span class="n">cursor</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getContentResolver</span><span class="o">().</span><span class="na">query</span><span class="o">(...);</span>
+            <span class="o">...</span>
+        <span class="o">...</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+<p>在这种情况下，系统抛出Exception如下：</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1-11 16:04:51.867  2633  3557 W AppOps  : Bad call: specified package com.providers.xxx under uid 10032 but it is really 10001
+01-11 16:04:51.867  2633  3557 W AppOps  : java.lang.RuntimeException: here
+01-11 16:04:51.867  2633  3557 W AppOps  : 	at com.android.server.AppOpsService.getOpsRawLocked(AppOpsService.java:1399)
+01-11 16:04:51.867  2633  3557 W AppOps  : 	at com.android.server.AppOpsService.noteOperationUnchecked(AppOpsService.java:1115)
+01-11 16:04:51.867  2633  3557 W AppOps  : 	at com.android.server.AppOpsService.noteProxyOperation(AppOpsService.java:1093)
+01-11 16:04:51.867  2633  3557 W AppOps  : 	at com.android.internal.app.IAppOpsService$Stub.onTransact(IAppOpsService.java:157)
+01-11 16:04:51.867  2633  3557 W AppOps  : 	at android.os.BinderInjector.onTransact(BinderInjector.java:30)
+01-11 16:04:51.867  2633  3557 W AppOps  : 	at android.os.Binder.execTransact(Binder.java:569)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: Writing exception to parcel
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: java.lang.SecurityException: Proxy package com.providers.xxx from uid 10001 or calling package com.providers.xxx from uid 10032 not allowed to perform READ_PROVIDER_C
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.app.AppOpsManager.noteProxyOp(AppOpsManager.java:1834)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.content.ContentProvider.checkPermissionAndAppOp(ContentProvider.java:538)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.content.ContentProvider.enforceReadPermissionInner(ContentProvider.java:560)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.content.ContentProvider$Transport.enforceReadPermission(ContentProvider.java:483)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.content.ContentProvider$Transport.query(ContentProvider.java:212)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.content.ContentResolver.query(ContentResolver.java:532)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.content.ContentResolver.query(ContentResolver.java:473)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at com.android.providers.xxx.BDatabaseHelper.query(BDatabaseHelper.java:7238)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.content.ContentProvider$Transport.query(ContentProvider.java:239)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.content.ContentProviderNative.onTransact(ContentProviderNative.java:112)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.os.BinderInjector.onTransact(BinderInjector.java:30)
+01-11 16:04:51.868  4659  6791 E DatabaseUtils: 	at android.os.Binder.execTransact(Binder.java:569)
+</code></pre></div></div>
+<h3 id="分析">分析：</h3>
+
+<p>由于错误log首先反应了没有C ContentProvider的权限，但检查A应用是有C的读写权限的。所以排除了A的权限问题。
+继续分析：
+通过log可以看到确实是ContentProvider在做权限检查时出错。通过log中对应的源码进行分析：
+首先可以看到ContentProvider.query()的时候做了权限检查，注意，传入的enforceReadPermission()的callingPkg是调用方的包名，以上面为例，就是B的包名。</p>
+
+<p>ContentProvider.query():</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="n">Cursor</span> <span class="nf">query</span><span class="o">(</span><span class="n">String</span> <span class="n">callingPkg</span><span class="o">,</span> <span class="n">Uri</span> <span class="n">uri</span><span class="o">,</span> <span class="nd">@Nullable</span> <span class="n">String</span><span class="o">[]</span> <span class="n">projection</span><span class="o">,</span>
+                <span class="nd">@Nullable</span> <span class="n">Bundle</span> <span class="n">queryArgs</span><span class="o">,</span> <span class="nd">@Nullable</span> <span class="n">ICancellationSignal</span> <span class="n">cancellationSignal</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">validateIncomingUri</span><span class="o">(</span><span class="n">uri</span><span class="o">);</span>
+            <span class="n">uri</span> <span class="o">=</span> <span class="n">maybeGetUriWithoutUserId</span><span class="o">(</span><span class="n">uri</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">enforceReadPermission</span><span class="o">(</span><span class="n">callingPkg</span><span class="o">,</span> <span class="n">uri</span><span class="o">,</span> <span class="kc">null</span><span class="o">)</span> <span class="o">!=</span> <span class="n">AppOpsManager</span><span class="o">.</span><span class="na">MODE_ALLOWED</span><span class="o">)</span> <span class="o">{</span>
+</code></pre></div></div>
+<p>enforceReadPermission()调用了.checkPermissionAndAppOp()方法，ContentProvider.checkPermissionAndAppOp()调用了AppOpsManager.noteProxyOp()去做检查出了异常。</p>
+
+<p>AppOpsManager.noteProxyOp()：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="kd">public</span> <span class="kt">int</span> <span class="nf">noteProxyOp</span><span class="o">(</span><span class="kt">int</span> <span class="n">op</span><span class="o">,</span> <span class="n">String</span> <span class="n">proxiedPackageName</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kt">int</span> <span class="n">mode</span> <span class="o">=</span> <span class="n">noteProxyOpNoThrow</span><span class="o">(</span><span class="n">op</span><span class="o">,</span> <span class="n">proxiedPackageName</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mode</span> <span class="o">==</span> <span class="n">MODE_ERRORED</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">SecurityException</span><span class="o">(</span><span class="s">"Proxy package "</span> <span class="o">+</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getOpPackageName</span><span class="o">()</span>
+                    <span class="o">+</span> <span class="s">" from uid "</span> <span class="o">+</span> <span class="n">Process</span><span class="o">.</span><span class="na">myUid</span><span class="o">()</span> <span class="o">+</span> <span class="s">" or calling package "</span>
+                    <span class="o">+</span> <span class="n">proxiedPackageName</span> <span class="o">+</span> <span class="s">" from uid "</span> <span class="o">+</span> <span class="n">Binder</span><span class="o">.</span><span class="na">getCallingUid</span><span class="o">()</span>
+                    <span class="o">+</span> <span class="s">" not allowed to perform "</span> <span class="o">+</span> <span class="n">sOpNames</span><span class="o">[</span><span class="n">op</span><span class="o">]);</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">mode</span><span class="o">;</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+<p>noteProxyOpNoThrow()又做了什么呢？
+AppOpsManager.noteProxyOpNoThrow():</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="cm">/**
+     * Like {@link #noteProxyOp(int, String)} but instead
+     * of throwing a {@link SecurityException} it returns {@link #MODE_ERRORED}.
+     * @hide
+     */</span>
+    <span class="kd">public</span> <span class="kt">int</span> <span class="nf">noteProxyOpNoThrow</span><span class="o">(</span><span class="kt">int</span> <span class="n">op</span><span class="o">,</span> <span class="n">String</span> <span class="n">proxiedPackageName</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="n">mService</span><span class="o">.</span><span class="na">noteProxyOperation</span><span class="o">(</span><span class="n">op</span><span class="o">,</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getOpPackageName</span><span class="o">(),</span>
+                    <span class="n">Binder</span><span class="o">.</span><span class="na">getCallingUid</span><span class="o">(),</span> <span class="n">proxiedPackageName</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">RemoteException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="n">e</span><span class="o">.</span><span class="na">rethrowFromSystemServer</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+<p>可见noteProxyOpNoThrow()是通过binder调用到了AppOpsService.noteProxyOperation()方法，注意，这里传入的是AppOpsService.noteProxyOperation()的后两个参数为Binder.getCallingUid()和之前层层传入的调用方的包名，也就是上面例子的B的包名。</p>
+
+<p>下面，继续看binder另一侧的AppOpsService.noteProxyOperation()方法,我们结合log中AppOps的输出log：</p>
+
+<p>AppOpsService.noteProxyOperation():</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">int</span> <span class="nf">noteProxyOperation</span><span class="o">(</span><span class="kt">int</span> <span class="n">code</span><span class="o">,</span> <span class="n">String</span> <span class="n">proxyPackageName</span><span class="o">,</span>
+            <span class="kt">int</span> <span class="n">proxiedUid</span><span class="o">,</span> <span class="n">String</span> <span class="n">proxiedPackageName</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">verifyIncomingOp</span><span class="o">(</span><span class="n">code</span><span class="o">);</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">proxyUid</span> <span class="o">=</span> <span class="n">Binder</span><span class="o">.</span><span class="na">getCallingUid</span><span class="o">();</span>
+        <span class="n">String</span> <span class="n">resolveProxyPackageName</span> <span class="o">=</span> <span class="n">resolvePackageName</span><span class="o">(</span><span class="n">proxyUid</span><span class="o">,</span> <span class="n">proxyPackageName</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">resolveProxyPackageName</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="n">AppOpsManager</span><span class="o">.</span><span class="na">MODE_IGNORED</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">proxyMode</span> <span class="o">=</span> <span class="n">noteOperationUnchecked</span><span class="o">(</span><span class="n">code</span><span class="o">,</span> <span class="n">proxyUid</span><span class="o">,</span>
+                <span class="n">resolveProxyPackageName</span><span class="o">,</span> <span class="o">-</span><span class="mi">1</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">proxyMode</span> <span class="o">!=</span> <span class="n">AppOpsManager</span><span class="o">.</span><span class="na">MODE_ALLOWED</span> <span class="o">||</span> <span class="n">Binder</span><span class="o">.</span><span class="na">getCallingUid</span><span class="o">()</span> <span class="o">==</span> <span class="n">proxiedUid</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="n">proxyMode</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="n">String</span> <span class="n">resolveProxiedPackageName</span> <span class="o">=</span> <span class="n">resolvePackageName</span><span class="o">(</span><span class="n">proxiedUid</span><span class="o">,</span> <span class="n">proxiedPackageName</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">resolveProxiedPackageName</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="n">AppOpsManager</span><span class="o">.</span><span class="na">MODE_IGNORED</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="nf">noteOperationUnchecked</span><span class="o">(</span><span class="n">code</span><span class="o">,</span> <span class="n">proxiedUid</span><span class="o">,</span> <span class="n">resolveProxiedPackageName</span><span class="o">,</span>
+                <span class="n">proxyMode</span><span class="o">,</span> <span class="n">resolveProxyPackageName</span><span class="o">);</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+<p>AppOpsService.noteOperationUnchecked():</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   <span class="kd">private</span> <span class="kt">int</span> <span class="nf">noteOperationUnchecked</span><span class="o">(</span><span class="kt">int</span> <span class="n">code</span><span class="o">,</span> <span class="kt">int</span> <span class="n">uid</span><span class="o">,</span> <span class="n">String</span> <span class="n">packageName</span><span class="o">,</span>
+            <span class="kt">int</span> <span class="n">proxyUid</span><span class="o">,</span> <span class="n">String</span> <span class="n">proxyPackageName</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">Op</span> <span class="n">op</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="n">Op</span> <span class="n">switchOp</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="kt">int</span> <span class="n">switchCode</span><span class="o">;</span>
+        <span class="kt">int</span> <span class="n">resultMode</span> <span class="o">=</span> <span class="n">AppOpsManager</span><span class="o">.</span><span class="na">MODE_ALLOWED</span><span class="o">;</span>
+        <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">Ops</span> <span class="n">ops</span> <span class="o">=</span> <span class="n">getOpsRawLocked</span><span class="o">(</span><span class="n">uid</span><span class="o">,</span> <span class="n">packageName</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+          <span class="o">...</span>
+         <span class="o">}</span>
+    <span class="o">...</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>AppOpsService.getOpsRawLocked():</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="kd">private</span> <span class="n">Ops</span> <span class="nf">getOpsRawLocked</span><span class="o">(</span><span class="kt">int</span> <span class="n">uid</span><span class="o">,</span> <span class="n">String</span> <span class="n">packageName</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">edit</span><span class="o">)</span> <span class="o">{</span>
+        <span class="o">...</span>
+        <span class="n">Ops</span> <span class="n">ops</span> <span class="o">=</span> <span class="n">uidState</span><span class="o">.</span><span class="na">pkgOps</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">packageName</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">ops</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(!</span><span class="n">edit</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="o">}</span>
+            <span class="kt">boolean</span> <span class="n">isPrivileged</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+            <span class="c1">// This is the first time we have seen this package name under this uid,</span>
+            <span class="c1">// so let's make sure it is valid.</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">uid</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                <span class="kd">final</span> <span class="kt">long</span> <span class="n">ident</span> <span class="o">=</span> <span class="n">Binder</span><span class="o">.</span><span class="na">clearCallingIdentity</span><span class="o">();</span>
+                <span class="k">try</span> <span class="o">{</span>
+                    <span class="kt">int</span> <span class="n">pkgUid</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="o">;</span>
+                    <span class="k">try</span> <span class="o">{</span>
+                        <span class="n">ApplicationInfo</span> <span class="n">appInfo</span> <span class="o">=</span> <span class="n">ActivityThread</span><span class="o">.</span><span class="na">getPackageManager</span><span class="o">()</span>
+                                <span class="o">.</span><span class="na">getApplicationInfo</span><span class="o">(</span><span class="n">packageName</span><span class="o">,</span>
+                                        <span class="n">PackageManager</span><span class="o">.</span><span class="na">MATCH_DEBUG_TRIAGED_MISSING</span><span class="o">,</span>
+                                        <span class="n">UserHandle</span><span class="o">.</span><span class="na">getUserId</span><span class="o">(</span><span class="n">uid</span><span class="o">));</span>
+                        <span class="k">if</span> <span class="o">(</span><span class="n">appInfo</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                            <span class="n">pkgUid</span> <span class="o">=</span> <span class="n">appInfo</span><span class="o">.</span><span class="na">uid</span><span class="o">;</span>
+                            <span class="n">isPrivileged</span> <span class="o">=</span> <span class="o">(</span><span class="n">appInfo</span><span class="o">.</span><span class="na">privateFlags</span>
+                                    <span class="o">&amp;</span> <span class="n">ApplicationInfo</span><span class="o">.</span><span class="na">PRIVATE_FLAG_PRIVILEGED</span><span class="o">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">;</span>
+                        <span class="o">}</span>
+                        <span class="o">...</span>
+                    <span class="o">}</span>
+                    <span class="o">...</span>
+                    <span class="k">if</span> <span class="o">(</span><span class="n">pkgUid</span> <span class="o">!=</span> <span class="n">uid</span><span class="o">)</span> <span class="o">{</span>
+                        <span class="c1">// Oops!  The package name is not valid for the uid they are calling</span>
+                        <span class="c1">// under.  Abort.</span>
+                        <span class="n">RuntimeException</span> <span class="n">ex</span> <span class="o">=</span> <span class="k">new</span> <span class="n">RuntimeException</span><span class="o">(</span><span class="s">"here"</span><span class="o">);</span>
+                        <span class="n">ex</span><span class="o">.</span><span class="na">fillInStackTrace</span><span class="o">();</span>
+                        <span class="n">Slog</span><span class="o">.</span><span class="na">w</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"Bad call: specified package "</span> <span class="o">+</span> <span class="n">packageName</span>
+                                <span class="o">+</span> <span class="s">" under uid "</span> <span class="o">+</span> <span class="n">uid</span> <span class="o">+</span> <span class="s">" but it is really "</span> <span class="o">+</span> <span class="n">pkgUid</span><span class="o">,</span> <span class="n">ex</span><span class="o">);</span>
+                        <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+                    <span class="o">}</span>
+                <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+                    <span class="n">Binder</span><span class="o">.</span><span class="na">restoreCallingIdentity</span><span class="o">(</span><span class="n">ident</span><span class="o">);</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+            <span class="n">ops</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Ops</span><span class="o">(</span><span class="n">packageName</span><span class="o">,</span> <span class="n">uidState</span><span class="o">,</span> <span class="n">isPrivileged</span><span class="o">);</span>
+            <span class="n">uidState</span><span class="o">.</span><span class="na">pkgOps</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">packageName</span><span class="o">,</span> <span class="n">ops</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">ops</span><span class="o">;</span>
+    <span class="o">}</span>
+</code></pre></div></div>
+<p>这里主要的操作就是将传入的uid和包名进行判断：比对该包对应的uid和传入的uid比较，如果不一致就报错。错误信息和log中的一致：</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Bad call: specified package com.providers.xxx under uid 10032 but it is really 10001
+</code></pre></div></div>
+<p>上文提到了，这个包名是传入的ContentProvider的调用方的包名，也就是例子中的B的包名。而uid是在AppOpsManager中通过Binder.getCallingUid()获得的。log中显示，此uid并不是B的uid，而是其上游调用者A的uid。
+为什么在C中调用Binder.getCallingUid()得到的是A进程的呢？我找到了袁辉辉大神的一片博客： <a href="http://gityuan.com/2016/03/05/binder-clearCallingIdentity/">Binder IPC的权限控制</a></p>
+
+<p>“线程B通过Binder调用当前线程的某个组件：此时线程B是线程B某个组件的调用端，则mCallingUid和mCallingPid应该保存当前线程B的PID和UID，故需要调用clearCallingIdentity()方法完成这个功能。当线程B调用完某个组件，由于线程B仍然处于线程A的被调用端，因此mCallingUid和mCallingPid需要恢复成线程A的UID和PID，这是调用restoreCallingIdentity()即可完成。”</p>
+
+<p>Binder的机制就是这么设计的，所以需要在B进行下一次Binder调用(也就是query ContentProvider)之前调用clearCallingIdentity()来将B的
+PID和UID附给mCallingUid和mCallingPid。Binder调用结束后在restoreCallingIdentity()来将其恢复成其原本调用方的PID和UID。这样在C里就会用B的相关信息进行权限校验，在AppOpsService.getOpsRawLocked()，UID和包名都是B的，是一致的，就不会报错。
+###　解决办法
+其实上文也已经提到了，参考 <a href="http://gityuan.com/2016/03/05/binder-clearCallingIdentity/">Binder IPC的权限控制</a>，在B进行Query前后分别调用clearCallingIdentity()
+//作用是清空远程调用端的uid和pid，用当前本地进程的uid和pid替代，这样在之后的调用方去进行权限校验时会以B的信息为主，不会出现包名和UID不一致的情况。
+最后修改过的调用方式如下：</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        <span class="kt">long</span> <span class="n">token</span> <span class="o">=</span> <span class="n">Binder</span><span class="o">.</span><span class="na">clearCallingIdentity</span><span class="o">();</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="n">Cursor</span> <span class="n">cursor</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getContentResolver</span><span class="o">().</span><span class="na">query</span><span class="o">(...);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">cursor</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">try</span> <span class="o">{</span>
+                    <span class="c1">//do something;</span>
+                <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+                    <span class="n">cursor</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+            <span class="n">Binder</span><span class="o">.</span><span class="na">restoreCallingIdentity</span><span class="o">(</span><span class="n">token</span><span class="o">);</span>
+        <span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="总结">总结</h3>
+<p>1.ContentProvider是用Binder实现的，查询的过程其实就是一次Binder调用，所以想深入了解ContentProvider一定要会一些Binder相关的知识。
+2.ContentProvider在接受一次查询前会调用AppOpsManager(其会通过Binder再由AppOpsService完成)进行权限校验，其中会校验调用方的UID和包名是否一致，其相关功能可见文章： <a href="http://3dobe.com/archives/51/">Android 权限管理 —— AppOps</a>。
+2.Binder调用时候可以通过Binder.getCallingPid()和Binder.getCallingUid()来获取调用方的PID和UID，而如果A通过Binder调用B，B又Binder调用了C，那么在C中Binder.getCallingPid()和Binder.getCallingUid()得到的是A的PID和UID，这种情况下需要在B调用C的前后用Binder.clearCallingIdentity()和Binder.restoreCallingIdentity()使其带上B的PID和UID，从而在C中进行权限校验时候用B的信息进行校验，当然这也符合逻辑，B调用的C，应该B需要有相应权限。
+3.Binder.clearCallingIdentity()和Binder.restoreCallingIdentity()的实现原理 <a href="http://gityuan.com/2016/03/05/binder-clearCallingIdentity/">Binder IPC的权限控制</a>也有介绍，是通过移位实现的。</p>
+
+  </div>
+
+  
+</article>
+
+      </div>
+    </main>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">QinTong Blog</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>
+            
+              QinTong Blog
+            
+            </li>
+            
+            <li><a href="mailto:qintong5900@163.com">qintong5900@163.com</a></li>
+            
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/qintong91"><span class="icon icon--github"><svg viewBox="0 0 16 16" width="16px" height="16px"><path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/></svg>
+</span><span class="username">qintong91</span></a>
+
+          </li>
+          
+
+          
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-3">
+        <p>Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.</p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>
