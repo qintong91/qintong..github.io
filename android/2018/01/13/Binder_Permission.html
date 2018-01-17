@@ -159,7 +159,7 @@
         <span class="k">return</span> <span class="n">mode</span><span class="o">;</span>
     <span class="o">}</span>
 </code></pre></div></div>
-<p>noteProxyOpNoThrow()又做了什么呢？
+<p>noteProxyOpNoThrow()又做了什么呢？https://www.jianshu.com/p/a609b965364b
 AppOpsManager.noteProxyOpNoThrow():</p>
 <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="cm">/**
      * Like {@link #noteProxyOp(int, String)} but instead
@@ -293,10 +293,13 @@ PID和UID附给mCallingUid和mCallingPid。Binder调用结束后在restoreCallin
 </code></pre></div></div>
 
 <h3 id="总结">总结</h3>
-<p>1.ContentProvider是用Binder实现的，查询的过程其实就是一次Binder调用，所以想深入了解ContentProvider一定要会一些Binder相关的知识。
-2.ContentProvider在接受一次查询前会调用AppOpsManager(其会通过Binder再由AppOpsService完成)进行权限校验，其中会校验调用方的UID和包名是否一致，其相关功能可见文章： <a href="http://3dobe.com/archives/51/">Android 权限管理 —— AppOps</a>。
-2.Binder调用时候可以通过Binder.getCallingPid()和Binder.getCallingUid()来获取调用方的PID和UID，而如果A通过Binder调用B，B又Binder调用了C，那么在C中Binder.getCallingPid()和Binder.getCallingUid()得到的是A的PID和UID，这种情况下需要在B调用C的前后用Binder.clearCallingIdentity()和Binder.restoreCallingIdentity()使其带上B的PID和UID，从而在C中进行权限校验时候用B的信息进行校验，当然这也符合逻辑，B调用的C，应该B需要有相应权限。
-3.Binder.clearCallingIdentity()和Binder.restoreCallingIdentity()的实现原理 <a href="http://gityuan.com/2016/03/05/binder-clearCallingIdentity/">Binder IPC的权限控制</a>也有介绍，是通过移位实现的。</p>
+<p>1.ContentProvider是用Binder实现的，查询的过程其实就是一次Binder调用，所以想深入了解ContentProvider一定要会一些Binder相关的知识。</p>
+
+<p>2.ContentProvider在接受一次查询前会调用AppOpsManager(其会通过Binder再由AppOpsService完成)进行权限校验，其中会校验调用方的UID和包名是否一致，其相关功能可见文章： <a href="http://3dobe.com/archives/51/">Android 权限管理 —— AppOps</a>。</p>
+
+<p>3.Binder调用时候可以通过Binder.getCallingPid()和Binder.getCallingUid()来获取调用方的PID和UID，而如果A通过Binder调用B，B又Binder调用了C，那么在C中Binder.getCallingPid()和Binder.getCallingUid()得到的是A的PID和UID，这种情况下需要在B调用C的前后用Binder.clearCallingIdentity()和Binder.restoreCallingIdentity()使其带上B的PID和UID，从而在C中进行权限校验时候用B的信息进行校验，当然这也符合逻辑，B调用的C，应该B需要有相应权限。</p>
+
+<p>4.Binder.clearCallingIdentity()和Binder.restoreCallingIdentity()的实现原理 <a href="http://gityuan.com/2016/03/05/binder-clearCallingIdentity/">Binder IPC的权限控制</a>也有介绍，是通过移位实现的。</p>
 
   </div>
 
